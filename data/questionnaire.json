@@ -1,0 +1,1223 @@
+{
+ "version": 1,
+ "modules": [
+  {
+   "id": "m0",
+   "title": {
+    "en": "Frame",
+    "fr": "Cadre"
+   },
+   "express": false,
+   "questions": [
+    "0.1",
+    "0.2",
+    "0.3"
+   ]
+  },
+  {
+   "id": "express",
+   "title": {
+    "en": "Express (10 min)",
+    "fr": "Express (10 min)"
+   },
+   "express": true,
+   "questions": [
+    "1.1",
+    "1.2",
+    "1.3",
+    "1.4",
+    "1.5",
+    "1.6",
+    "1.7",
+    "1.8",
+    "1.9",
+    "1.10",
+    "1.11",
+    "1.12"
+   ]
+  },
+  {
+   "id": "ikigai",
+   "title": {
+    "en": "The four circles",
+    "fr": "Les quatre cercles"
+   },
+   "express": false,
+   "questions": [
+    "2.1",
+    "2.2",
+    "2.3",
+    "2.4",
+    "2.5",
+    "2.6",
+    "2.7",
+    "2.8"
+   ]
+  },
+  {
+   "id": "work",
+   "title": {
+    "en": "Work and context",
+    "fr": "Travail et contexte"
+   },
+   "express": false,
+   "questions": [
+    "3.1",
+    "3.2",
+    "3.3",
+    "3.4",
+    "3.5",
+    "3.6",
+    "3.7",
+    "3.8"
+   ]
+  },
+  {
+   "id": "style",
+   "title": {
+    "en": "Communication and style",
+    "fr": "Communication et style"
+   },
+   "express": false,
+   "questions": [
+    "4.1",
+    "4.2",
+    "4.3",
+    "4.4",
+    "4.5",
+    "4.6",
+    "4.7",
+    "4.8",
+    "4.9"
+   ]
+  },
+  {
+   "id": "autonomy",
+   "title": {
+    "en": "Autonomy and guardrails",
+    "fr": "Autonomie et garde-fous"
+   },
+   "express": false,
+   "questions": [
+    "5.1",
+    "5.2",
+    "5.3",
+    "5.4",
+    "5.5",
+    "5.6",
+    "5.7",
+    "5.8"
+   ]
+  },
+  {
+   "id": "decision",
+   "title": {
+    "en": "Decisions and reasoning",
+    "fr": "Décision et raisonnement"
+   },
+   "express": false,
+   "questions": [
+    "6.1",
+    "6.2",
+    "6.3",
+    "6.4",
+    "6.5",
+    "6.6"
+   ]
+  },
+  {
+   "id": "rhythm",
+   "title": {
+    "en": "Rhythms and environment",
+    "fr": "Rythmes et environnement"
+   },
+   "express": false,
+   "questions": [
+    "7.1",
+    "7.2",
+    "7.3",
+    "7.4",
+    "7.5",
+    "7.6"
+   ]
+  },
+  {
+   "id": "goals",
+   "title": {
+    "en": "Goals and priorities",
+    "fr": "Objectifs et priorités"
+   },
+   "express": false,
+   "questions": [
+    "8.1",
+    "8.2",
+    "8.3",
+    "8.4",
+    "8.5",
+    "8.6"
+   ]
+  },
+  {
+   "id": "values",
+   "title": {
+    "en": "Values and red lines",
+    "fr": "Valeurs et lignes rouges"
+   },
+   "express": false,
+   "questions": [
+    "9.1",
+    "9.2",
+    "9.3",
+    "9.4",
+    "9.5"
+   ]
+  },
+  {
+   "id": "friction",
+   "title": {
+    "en": "Frictions and feedback",
+    "fr": "Frictions et retours"
+   },
+   "express": false,
+   "questions": [
+    "10.1",
+    "10.2",
+    "10.3",
+    "10.4",
+    "10.5"
+   ]
+  }
+ ],
+ "questions": {
+  "0.1": {
+   "id": "0.1",
+   "type": "choice",
+   "to": [
+    "rule"
+   ],
+   "fr": "Que veux-tu que je retienne de toi ?",
+   "en": "What may I remember about you?",
+   "opts_fr": [
+    "Tout",
+    "Seulement le professionnel",
+    "Seulement les préférences de travail"
+   ],
+   "opts_en": [
+    "Everything",
+    "Work-related only",
+    "Working preferences only"
+   ]
+  },
+  "0.2": {
+   "id": "0.2",
+   "type": "choice",
+   "to": [
+    "L"
+   ],
+   "fr": "Quels sujets sont interdits pour la mémoire ?",
+   "en": "Which topics are off limits for memory?",
+   "opts_fr": [
+    "Santé",
+    "Argent personnel",
+    "Famille",
+    "Politique",
+    "Aucun"
+   ],
+   "opts_en": [
+    "Health",
+    "Personal finances",
+    "Family",
+    "Politics",
+    "None"
+   ]
+  },
+  "0.3": {
+   "id": "0.3",
+   "type": "choice",
+   "to": [
+    "rule"
+   ],
+   "fr": "Valider chaque écriture dans USER.md / SOUL.md ?",
+   "en": "Approve each write to USER.md / SOUL.md?",
+   "opts_fr": [
+    "Toujours",
+    "Seulement SOUL.md",
+    "Jamais"
+   ],
+   "opts_en": [
+    "Always",
+    "SOUL.md only",
+    "Never"
+   ]
+  },
+  "1.1": {
+   "id": "1.1",
+   "type": "text",
+   "to": [
+    "U"
+   ],
+   "fr": "Comment veux-tu que je t'appelle, et dans quelle langue ?",
+   "en": "What should I call you, and in which language should I answer?"
+  },
+  "1.2": {
+   "id": "1.2",
+   "type": "text",
+   "to": [
+    "U"
+   ],
+   "fr": "En une phrase, que fais-tu et pour qui ?",
+   "en": "In one sentence, what do you do and for whom?"
+  },
+  "1.3": {
+   "id": "1.3",
+   "type": "text",
+   "to": [
+    "U"
+   ],
+   "fr": "Quel est ton objectif principal des 3 prochains mois ?",
+   "en": "What is your main goal for the next 3 months?"
+  },
+  "1.4": {
+   "id": "1.4",
+   "type": "choice",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Quelle longueur de réponse par défaut ?",
+   "en": "Default answer length?",
+   "opts_fr": [
+    "Une ligne",
+    "Court",
+    "Détaillé"
+   ],
+   "opts_en": [
+    "One line",
+    "Short",
+    "Detailed"
+   ]
+  },
+  "1.5": {
+   "id": "1.5",
+   "type": "choice",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Quand une décision est à prendre, tu préfères que…",
+   "en": "When a decision has to be made, do you prefer that I…",
+   "opts_fr": [
+    "Je tranche et j'explique",
+    "Je propose 2 à 3 options",
+    "Je pose des questions d'abord"
+   ],
+   "opts_en": [
+    "Decide and explain",
+    "Offer 2 to 3 options",
+    "Ask questions first"
+   ]
+  },
+  "1.6": {
+   "id": "1.6",
+   "type": "choice",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Que fais-je sans demander ?",
+   "en": "What may I do without asking?",
+   "opts_fr": [
+    "Lire et analyser seulement",
+    "Modifier des fichiers de travail",
+    "Agir sur des systèmes réels",
+    "Rien sans accord"
+   ],
+   "opts_en": [
+    "Read and analyse only",
+    "Edit working files",
+    "Act on real systems",
+    "Nothing without approval"
+   ]
+  },
+  "1.7": {
+   "id": "1.7",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Quand je me trompe…",
+   "en": "When I get something wrong…",
+   "opts_fr": [
+    "Le dire et corriger tout de suite",
+    "Expliquer pourquoi d'abord"
+   ],
+   "opts_en": [
+    "Say so and fix it right away",
+    "Explain why first"
+   ]
+  },
+  "1.8": {
+   "id": "1.8",
+   "type": "scale",
+   "to": [
+    "S"
+   ],
+   "fr": "À quel point préfères-tu un « je ne sais pas » à une estimation ? (1 = estime toujours, 5 = dis « je ne sais pas »)",
+   "en": "How much do you prefer \"I don't know\" over an estimate? (1 = always estimate, 5 = say \"I don't know\")",
+   "opts_fr": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ],
+   "opts_en": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ]
+  },
+  "1.9": {
+   "id": "1.9",
+   "type": "text",
+   "to": [
+    "S",
+    "F"
+   ],
+   "fr": "Cite une chose qu'un assistant a faite et qui t'a énervé.",
+   "en": "Name something an assistant did that annoyed you."
+  },
+  "1.10": {
+   "id": "1.10",
+   "type": "text",
+   "to": [
+    "S",
+    "F"
+   ],
+   "fr": "Cite une chose qu'un assistant a faite et qui t'a vraiment aidé.",
+   "en": "Name something an assistant did that really helped you."
+  },
+  "1.11": {
+   "id": "1.11",
+   "type": "text",
+   "to": [
+    "U"
+   ],
+   "fr": "Quels jours et heures travailles-tu, et quand ne dois-je pas te solliciter ?",
+   "en": "Which days and hours do you work, and when should I not bother you?"
+  },
+  "1.12": {
+   "id": "1.12",
+   "type": "text",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Une ligne rouge absolue : ce que je ne dois jamais faire sans te le demander.",
+   "en": "One absolute red line: what I must never do without asking you."
+  },
+  "2.1": {
+   "id": "2.1",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Quelles activités te font perdre la notion du temps ?",
+   "en": "Which activities make you lose track of time?"
+  },
+  "2.2": {
+   "id": "2.2",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Qu'est-ce que les autres te demandent toujours de faire pour eux ?",
+   "en": "What do other people always ask you to do for them?"
+  },
+  "2.3": {
+   "id": "2.3",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Quelle tâche fais-tu moins bien que tu ne le voudrais et que tu évites ?",
+   "en": "Which task do you do less well than you would like, and avoid?"
+  },
+  "2.4": {
+   "id": "2.4",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Quel problème des autres veux-tu vraiment résoudre ?",
+   "en": "Which problem of other people do you truly want to solve?"
+  },
+  "2.5": {
+   "id": "2.5",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Pour quoi te paie-t-on aujourd'hui ? Et pour quoi voudrais-tu être payé ?",
+   "en": "What are you paid for today, and what would you like to be paid for?"
+  },
+  "2.6": {
+   "id": "2.6",
+   "type": "choice",
+   "to": [
+    "F"
+   ],
+   "fr": "Lequel des quatre cercles est le moins nourri en ce moment ?",
+   "en": "Which of the four circles is the least fed right now?",
+   "opts_fr": [
+    "Ce que j'aime",
+    "Ce pour quoi je suis doué",
+    "Ce dont le monde a besoin",
+    "Ce pour quoi on me paie"
+   ],
+   "opts_en": [
+    "What I love",
+    "What I am good at",
+    "What the world needs",
+    "What I can be paid for"
+   ]
+  },
+  "2.7": {
+   "id": "2.7",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Si l'argent n'était pas un sujet, que ferais-tu de tes semaines ?",
+   "en": "If money were not an issue, what would you do with your weeks?"
+  },
+  "2.8": {
+   "id": "2.8",
+   "type": "text",
+   "to": [
+    "F",
+    "U"
+   ],
+   "fr": "Quelle version de ton travail dans 3 ans serait un succès ?",
+   "en": "Which version of your work in 3 years would count as a success?"
+  },
+  "3.1": {
+   "id": "3.1",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Décris une semaine type, heure par heure approximativement.",
+   "en": "Describe a typical week, roughly hour by hour."
+  },
+  "3.2": {
+   "id": "3.2",
+   "type": "text",
+   "to": [
+    "F",
+    "U"
+   ],
+   "fr": "Quelles sont tes 3 tâches récurrentes les plus lourdes ?",
+   "en": "What are your 3 heaviest recurring tasks?"
+  },
+  "3.3": {
+   "id": "3.3",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Qui sont tes clients ou interlocuteurs principaux ? (sans noms si sensible)",
+   "en": "Who are your main clients or counterparts? (no names if sensitive)"
+  },
+  "3.4": {
+   "id": "3.4",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Ton rythme de décision ?",
+   "en": "Your decision pace?",
+   "opts_fr": [
+    "Rapide et instinctif",
+    "Posé et documenté"
+   ],
+   "opts_en": [
+    "Fast and instinctive",
+    "Slow and documented"
+   ]
+  },
+  "3.5": {
+   "id": "3.5",
+   "type": "text",
+   "to": [
+    "F",
+    "U"
+   ],
+   "fr": "Quels outils utilises-tu chaque jour ? Lesquels te frustrent ?",
+   "en": "Which tools do you use daily? Which frustrate you?"
+  },
+  "3.6": {
+   "id": "3.6",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Qu'est-ce qui te prend le plus de temps pour le moins de valeur ?",
+   "en": "What takes most of your time for the least value?"
+  },
+  "3.7": {
+   "id": "3.7",
+   "type": "choice",
+   "to": [
+    "U"
+   ],
+   "fr": "Tu travailles…",
+   "en": "You work…",
+   "opts_fr": [
+    "Seul",
+    "En petite équipe",
+    "Avec des partenaires"
+   ],
+   "opts_en": [
+    "Alone",
+    "In a small team",
+    "With partners"
+   ]
+  },
+  "3.8": {
+   "id": "3.8",
+   "type": "text",
+   "to": [
+    "F",
+    "S"
+   ],
+   "fr": "À quelles sources fais-tu confiance, lesquelles jamais ?",
+   "en": "Which sources do you trust, and which never?"
+  },
+  "4.1": {
+   "id": "4.1",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Ton ?",
+   "en": "Tone?",
+   "opts_fr": [
+    "Direct et sec",
+    "Chaleureux",
+    "Formel"
+   ],
+   "opts_en": [
+    "Direct and dry",
+    "Warm",
+    "Formal"
+   ]
+  },
+  "4.2": {
+   "id": "4.2",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Humour ?",
+   "en": "Humour?",
+   "opts_fr": [
+    "Bienvenu",
+    "Rare",
+    "Jamais"
+   ],
+   "opts_en": [
+    "Welcome",
+    "Rare",
+    "Never"
+   ]
+  },
+  "4.3": {
+   "id": "4.3",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Mise en forme ?",
+   "en": "Formatting?",
+   "opts_fr": [
+    "Listes et titres",
+    "Paragraphes courts",
+    "Minimal"
+   ],
+   "opts_en": [
+    "Lists and headings",
+    "Short paragraphs",
+    "Minimal"
+   ]
+  },
+  "4.4": {
+   "id": "4.4",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Emojis ?",
+   "en": "Emojis?",
+   "opts_fr": [
+    "Jamais",
+    "Parfois",
+    "Souvent"
+   ],
+   "opts_en": [
+    "Never",
+    "Sometimes",
+    "Often"
+   ]
+  },
+  "4.5": {
+   "id": "4.5",
+   "type": "text",
+   "to": [
+    "S"
+   ],
+   "fr": "Quels mots ou formules de politesse t'agacent ?",
+   "en": "Which words or polite phrases annoy you?"
+  },
+  "4.6": {
+   "id": "4.6",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Quand tu écris une note brève…",
+   "en": "When you write a short note…",
+   "opts_fr": [
+    "Je la développe",
+    "Je la laisse telle quelle"
+   ],
+   "opts_en": [
+    "Expand it",
+    "Leave it as it is"
+   ]
+  },
+  "4.7": {
+   "id": "4.7",
+   "type": "choice",
+   "to": [
+    "U"
+   ],
+   "fr": "Commandes à copier sur mobile ?",
+   "en": "Commands to copy on mobile?",
+   "opts_fr": [
+    "Seules, sans commentaire",
+    "Une par bloc",
+    "Peu importe"
+   ],
+   "opts_en": [
+    "Alone, no commentary",
+    "One per block",
+    "Doesn't matter"
+   ]
+  },
+  "4.8": {
+   "id": "4.8",
+   "type": "scenario",
+   "to": [
+    "S"
+   ],
+   "fr": "Je dois t'annoncer une mauvaise nouvelle sur un travail en cours : tu préfères que je commence par quoi ?",
+   "en": "I have to report bad news about work in progress: what should I start with?"
+  },
+  "4.9": {
+   "id": "4.9",
+   "type": "text",
+   "to": [
+    "S",
+    "F"
+   ],
+   "fr": "Donne un exemple d'une réponse parfaite que tu as reçue.",
+   "en": "Give an example of a perfect answer you once received."
+  },
+  "5.1": {
+   "id": "5.1",
+   "type": "scale",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Autonomie voulue pour des tâches réversibles : 1 = tout valider, 5 = agis.",
+   "en": "Autonomy wanted for reversible tasks: 1 = approve everything, 5 = just act.",
+   "opts_fr": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ],
+   "opts_en": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ]
+  },
+  "5.2": {
+   "id": "5.2",
+   "type": "scale",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Même question pour les actions irréversibles (suppression, envoi, paiement).",
+   "en": "Same question for irreversible actions (deletion, sending, payment).",
+   "opts_fr": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ],
+   "opts_en": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ]
+  },
+  "5.3": {
+   "id": "5.3",
+   "type": "choice",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Messages envoyés à des tiers ?",
+   "en": "Messages sent to third parties?",
+   "opts_fr": [
+    "Je montre le texte exact et j'attends",
+    "J'envoie si c'est un brouillon validé",
+    "Jamais d'envoi"
+   ],
+   "opts_en": [
+    "Show the exact text and wait",
+    "Send if it is an approved draft",
+    "Never send"
+   ]
+  },
+  "5.4": {
+   "id": "5.4",
+   "type": "choice",
+   "to": [
+    "U"
+   ],
+   "fr": "Dépenses (API, abonnements) ?",
+   "en": "Spending (APIs, subscriptions)?",
+   "opts_fr": [
+    "Plafond par appel",
+    "Plafond par jour",
+    "À valider chaque fois"
+   ],
+   "opts_en": [
+    "Cap per call",
+    "Cap per day",
+    "Approve every time"
+   ]
+  },
+  "5.5": {
+   "id": "5.5",
+   "type": "text",
+   "to": [
+    "L",
+    "S"
+   ],
+   "fr": "Quelles données ne doivent jamais sortir de ta machine ou de ton serveur ?",
+   "en": "Which data must never leave your machine or server?"
+  },
+  "5.6": {
+   "id": "5.6",
+   "type": "scenario",
+   "to": [
+    "S"
+   ],
+   "fr": "Je découvre une faille de sécurité en travaillant sur autre chose : je te le dis immédiatement ou je finis d'abord ?",
+   "en": "I find a security hole while working on something else: do I tell you immediately or finish first?"
+  },
+  "5.7": {
+   "id": "5.7",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Doute sur une consigne ?",
+   "en": "Unsure about an instruction?",
+   "opts_fr": [
+    "Je demande",
+    "J'applique l'interprétation prudente",
+    "J'applique la plus courante"
+   ],
+   "opts_en": [
+    "Ask",
+    "Apply the cautious reading",
+    "Apply the most common reading"
+   ]
+  },
+  "5.8": {
+   "id": "5.8",
+   "type": "text",
+   "to": [
+    "S",
+    "F"
+   ],
+   "fr": "Une erreur passée qui t'a coûté cher et que je dois éviter.",
+   "en": "A past mistake that cost you dearly and that I must avoid."
+  },
+  "6.1": {
+   "id": "6.1",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Face à un choix, tu veux…",
+   "en": "Facing a choice, you want…",
+   "opts_fr": [
+    "Le meilleur compromis",
+    "Le moins risqué",
+    "Le plus ambitieux"
+   ],
+   "opts_en": [
+    "The best compromise",
+    "The least risky",
+    "The most ambitious"
+   ]
+  },
+  "6.2": {
+   "id": "6.2",
+   "type": "text",
+   "to": [
+    "F",
+    "U"
+   ],
+   "fr": "Classe ce qui compte le plus : temps, coût, qualité, risque, réputation.",
+   "en": "Rank what matters most: time, cost, quality, risk, reputation."
+  },
+  "6.3": {
+   "id": "6.3",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Tu préfères que je…",
+   "en": "Do you prefer that I…",
+   "opts_fr": [
+    "Te contredise franchement",
+    "Nuance"
+   ],
+   "opts_en": [
+    "Contradict you frankly",
+    "Nuance"
+   ]
+  },
+  "6.4": {
+   "id": "6.4",
+   "type": "scenario",
+   "to": [
+    "S"
+   ],
+   "fr": "Tu me demandes quelque chose que je pense être une mauvaise idée : j'exécute en le disant, je refuse, ou je propose une alternative ?",
+   "en": "You ask for something I think is a bad idea: do I do it while saying so, refuse, or offer an alternative?"
+  },
+  "6.5": {
+   "id": "6.5",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Les chiffres ?",
+   "en": "Numbers?",
+   "opts_fr": [
+    "Toujours sourcés",
+    "Estimés acceptés si marqués"
+   ],
+   "opts_en": [
+    "Always sourced",
+    "Estimates accepted if flagged"
+   ]
+  },
+  "6.6": {
+   "id": "6.6",
+   "type": "text",
+   "to": [
+    "S",
+    "F"
+   ],
+   "fr": "Comment sais-tu qu'un travail est « terminé » ?",
+   "en": "How do you know a piece of work is \"done\"?"
+  },
+  "7.1": {
+   "id": "7.1",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Quand es-tu le plus productif ?",
+   "en": "When are you most productive?"
+  },
+  "7.2": {
+   "id": "7.2",
+   "type": "choice",
+   "to": [
+    "U"
+   ],
+   "fr": "Notifications ?",
+   "en": "Notifications?",
+   "opts_fr": [
+    "Seulement l'important",
+    "Un point par jour",
+    "À chaque fin de tâche"
+   ],
+   "opts_en": [
+    "Only what matters",
+    "One digest a day",
+    "After every finished task"
+   ]
+  },
+  "7.3": {
+   "id": "7.3",
+   "type": "text",
+   "to": [
+    "F",
+    "U"
+   ],
+   "fr": "Sur quels appareils me parles-tu, et pour quoi chacun ?",
+   "en": "Which devices do you talk to me on, and for what?"
+  },
+  "7.4": {
+   "id": "7.4",
+   "type": "choice",
+   "to": [
+    "U"
+   ],
+   "fr": "Un résumé régulier t'aiderait-il ?",
+   "en": "Would a regular digest help?",
+   "opts_fr": [
+    "Quotidien",
+    "Hebdomadaire",
+    "Non"
+   ],
+   "opts_en": [
+    "Daily",
+    "Weekly",
+    "No"
+   ]
+  },
+  "7.5": {
+   "id": "7.5",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Fuseaux, jours fériés ou contraintes de calendrier à connaître ?",
+   "en": "Time zones, holidays or calendar constraints I should know?"
+  },
+  "7.6": {
+   "id": "7.6",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Quand tu reviens après une absence…",
+   "en": "When you come back after an absence…",
+   "opts_fr": [
+    "Un résumé de ce qui s'est passé",
+    "Rien tant que je ne demande pas"
+   ],
+   "opts_en": [
+    "A summary of what happened",
+    "Nothing until I ask"
+   ]
+  },
+  "8.1": {
+   "id": "8.1",
+   "type": "text",
+   "to": [
+    "U",
+    "F"
+   ],
+   "fr": "Tes 3 priorités du trimestre, dans l'ordre.",
+   "en": "Your 3 priorities this quarter, in order."
+  },
+  "8.2": {
+   "id": "8.2",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Qu'est-ce qui te fait perdre du temps et que tu veux supprimer en premier ?",
+   "en": "What wastes your time and what do you want to remove first?"
+  },
+  "8.3": {
+   "id": "8.3",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Quel projet est le plus important mais n'avance pas ? Pourquoi ?",
+   "en": "Which project is the most important but stuck? Why?"
+  },
+  "8.4": {
+   "id": "8.4",
+   "type": "scale",
+   "to": [
+    "U"
+   ],
+   "fr": "Temps par semaine pour cadrer et valider mon travail ? (1 = très peu, 5 = beaucoup)",
+   "en": "Time per week to frame and review my work? (1 = very little, 5 = a lot)",
+   "opts_fr": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ],
+   "opts_en": [
+    "1",
+    "2",
+    "3",
+    "4",
+    "5"
+   ]
+  },
+  "8.5": {
+   "id": "8.5",
+   "type": "text",
+   "to": [
+    "S",
+    "F"
+   ],
+   "fr": "Comment mesures-tu que je te suis utile ?",
+   "en": "How do you measure whether I am useful to you?"
+  },
+  "8.6": {
+   "id": "8.6",
+   "type": "text",
+   "to": [
+    "S"
+   ],
+   "fr": "Qu'est-ce qui te ferait arrêter de m'utiliser ?",
+   "en": "What would make you stop using me?"
+  },
+  "9.1": {
+   "id": "9.1",
+   "type": "text",
+   "to": [
+    "F",
+    "S"
+   ],
+   "fr": "Trois valeurs qui guident tes décisions professionnelles.",
+   "en": "Three values that guide your professional decisions."
+  },
+  "9.2": {
+   "id": "9.2",
+   "type": "text",
+   "to": [
+    "S"
+   ],
+   "fr": "Ce que tu ne ferais jamais, même si c'était rentable.",
+   "en": "What you would never do, even if it were profitable."
+  },
+  "9.3": {
+   "id": "9.3",
+   "type": "choice",
+   "to": [
+    "S"
+   ],
+   "fr": "Dois-je signaler un mensonge par omission, même sur un livrable client ?",
+   "en": "Should I flag a lie by omission, even in a client deliverable?",
+   "opts_fr": [
+    "Oui",
+    "Non",
+    "Seulement si tu me le demandes"
+   ],
+   "opts_en": [
+    "Yes",
+    "No",
+    "Only if you ask"
+   ]
+  },
+  "9.4": {
+   "id": "9.4",
+   "type": "text",
+   "to": [
+    "S"
+   ],
+   "fr": "Sujets où je dois être prudent (juridique, médical, réglementaire).",
+   "en": "Topics where I must be careful (legal, medical, regulatory)."
+  },
+  "9.5": {
+   "id": "9.5",
+   "type": "text",
+   "to": [
+    "S",
+    "F"
+   ],
+   "fr": "Une règle d'éthique ou de confidentialité propre à ton métier.",
+   "en": "An ethics or confidentiality rule specific to your profession."
+  },
+  "10.1": {
+   "id": "10.1",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Qu'ai-je fait cette semaine qui t'a ralenti ?",
+   "en": "What did I do this week that slowed you down?"
+  },
+  "10.2": {
+   "id": "10.2",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Qu'ai-je fait que tu aimerais que je fasse plus souvent ?",
+   "en": "What did I do that you would like me to do more often?"
+  },
+  "10.3": {
+   "id": "10.3",
+   "type": "choice",
+   "to": [
+    "U",
+    "S"
+   ],
+   "fr": "Quand je t'interromps pour une question…",
+   "en": "When I interrupt you with a question…",
+   "opts_fr": [
+    "Trop souvent",
+    "Bien",
+    "Pas assez"
+   ],
+   "opts_en": [
+    "Too often",
+    "Fine",
+    "Not enough"
+   ]
+  },
+  "10.4": {
+   "id": "10.4",
+   "type": "text",
+   "to": [
+    "F"
+   ],
+   "fr": "Qu'est-ce que je ne comprends toujours pas de ton fonctionnement ?",
+   "en": "What do I still not understand about how you work?"
+  },
+  "10.5": {
+   "id": "10.5",
+   "type": "text",
+   "to": [
+    "S"
+   ],
+   "fr": "Une règle à ajouter ou à retirer à mon comportement ?",
+   "en": "A rule to add to or remove from my behaviour?"
+  }
+ }
+}
