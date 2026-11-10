@@ -121,12 +121,7 @@ HELP = {
 
 
 def _fmt_q(q: dict, lg: str) -> str:
-    left = q["remaining"]
-    s = f"[{q['id']}] {q['text']}"
-    if q.get("options"):
-        s += "\n" + "\n".join(f"  • {o}" for o in q["options"])
-    s += ("\n\n(« passer » pour sauter · %d restantes)" if lg == "fr" else "\n\n(say \"skip\" to skip · %d left)") % left
-    return s
+    return core.format_question(q, lg == "fr")
 
 
 def _cmd(raw: str, **_: Any) -> str:
@@ -147,9 +142,11 @@ def _cmd(raw: str, **_: Any) -> str:
                  "Express interview: ~12 questions, everything stays local, nothing reaches USER.md "
                  "without your approval. Just answer here, one sentence is enough.\n\n")
         q = core.next_question(st, lang=lg)
+        core.set_active(st, bool(q))
         return intro + (_fmt_q(q, lg) if q else "Already complete. /ikigai compile")
     if sub == "resume":
         q = core.next_question(st, lang=lg)
+        core.set_active(st, bool(q))
         return _fmt_q(q, lg) if q else ("Terminé : /ikigai compile" if lg == "fr" else "Done: /ikigai compile")
     if sub == "more":
         mod = rest[0] if rest else None
@@ -157,6 +154,7 @@ def _cmd(raw: str, **_: Any) -> str:
             return ("Module inconnu. Modules : " if lg == "fr" else "Unknown module. Modules: ") + mods
         st.set_meta(full=True)
         q = core.next_question(st, module=mod, express=False, lang=lg)
+        core.set_active(st, bool(q))
         return _fmt_q(q, lg) if q else ("Module terminé." if lg == "fr" else "Module complete.")
     if sub == "status":
         s = core.status(st)
@@ -178,10 +176,10 @@ def _cmd(raw: str, **_: Any) -> str:
                 f"Sheets: {r['files']['profile_dir']}\nSOUL.md draft: {r['files']['soul_draft'] or '(none)'}\n\n"
                 "Say \"apply\" and I will update USER.md (with your approval).")
     if sub == "pause":
-        st.set_meta(awaiting=None)
+        st.set_meta(awaiting=None, active=False)
         return "OK. /ikigai resume" if lg == "en" else "D'accord. /ikigai resume"
     if sub in ("off", "on"):
-        st.set_meta(off=(sub == "off"))
+        st.set_meta(off=(sub == "off"), **({"active": False, "awaiting": None} if sub == "off" else {}))
         return f"Rappels {'coupés' if sub == 'off' else 'réactivés'}." if lg == "fr" else f"Nudges {sub}."
     if sub == "forget" and rest:
         return ("Supprimée." if lg == "fr" else "Deleted.") if st.forget(rest[0]) else "?"
@@ -200,6 +198,10 @@ def _pre_llm_call(session_id: str = "", user_message: Any = "", is_first_turn: b
     try:
         st = _store()
         text = user_message if isinstance(user_message, str) else ""
+        if text and not text.lstrip().startswith("/"):
+            turn = core.interview_turn(st, text)
+            if turn is not None:
+                return {"action": "block", "message": turn["message"]}
         parts = [p for p in (core.awaiting_context(st, text), core.nudge(st, bool(is_first_turn))) if p]
         return {"context": "\n\n".join(parts)} if parts else None
     except Exception:  # never break a turn

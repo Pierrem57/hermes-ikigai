@@ -469,3 +469,80 @@ def awaiting_context(store: Store, user_message: str, now: float | None = None) 
             "ask the next question: ONE question per turn, no commentary on the answer beyond one short "
             "acknowledgement. If they want to skip, save with skipped=true. If the message is about "
             "something else, answer it normally and leave the question open." % (qid, q["text"], qid))
+
+
+# ---------------------------------------------------------------- deterministic interview turn
+# While an interview is active, the plugin itself consumes the user's reply (via a pre_llm_call
+# block), saves it and returns the next question. No model call, no tool call: it cannot be
+# derailed by a model that ignores the open question, and it costs no tokens.
+
+_SKIP = re.compile(r"^\s*(passer?|skip|pass|suivante?|next|\.)\s*$", re.I)
+_STOP = re.compile(r"^\s*(pause|stop|arr[êe]te|arr[êe]ter|quit|quitter|exit)\s*$", re.I)
+
+
+def match_option(text: str, options: list[str]) -> str | None:
+    t = text.strip().lower()
+    if t.isdigit() and 1 <= int(t) <= len(options):
+        return options[int(t) - 1]
+    for o in options:
+        if t == o.lower():
+            return o
+    hits = [o for o in options if o.lower().startswith(t) or (len(t) >= 3 and t in o.lower())]
+    return hits[0] if len(hits) == 1 else None
+
+
+def set_active(store: Store, on: bool) -> None:
+    store.set_meta(active=on, active_ts=_now())
+
+
+def interview_turn(store: Store, text: str, now: float | None = None) -> dict[str, Any] | None:
+    """Handle one reply. Returns None when no interview is active (let the model answer),
+    else {"message": str, "done": bool}."""
+    now = now or _now()
+    m = store.meta()
+    if not m.get("active") or not m.get("awaiting"):
+        return None
+    if now - m.get("awaiting_ts", 0) > AWAIT_TTL_H * 3600:
+        store.set_meta(active=False, awaiting=None)
+        return None
+    lg = m.get("lang", "en")
+    fr = lg == "fr"
+    if _STOP.match(text):
+        store.set_meta(active=False, awaiting=None)
+        return {"message": "Entretien en pause. /ikigai resume pour reprendre." if fr
+                else "Interview paused. /ikigai resume to continue.", "done": True}
+    qid = m["awaiting"]
+    q = render(qid, lg)
+    if _SKIP.match(text):
+        store.save(qid, "", "", "declared", skipped=True)
+    else:
+        value = text.strip()
+        if q["type"] in ("choice", "scale"):
+            opt = match_option(value, q.get("options", []))
+            if opt is None:
+                hint = ("Réponds par le numéro ou le texte d'une option, ou « passer »." if fr
+                        else "Reply with the number or the text of an option, or \"skip\".")
+                return {"message": f"{hint}\n\n{format_question(q, fr)}", "done": False}
+            store.save(qid, opt, value, "declared")
+        else:
+            if len(value) > 1500:
+                value = value[:1500]
+            store.save(qid, value, value, "declared")
+    nxt = next_question(store, lang=lg)
+    if nxt is None:
+        store.set_meta(active=False, awaiting=None, last_checkin=now)
+        return {"message": ("Terminé, merci. Lance /ikigai compile pour voir ce que je propose d'écrire dans USER.md."
+                            if fr else "Done, thank you. Run /ikigai compile to see what I would write to USER.md."),
+                "done": True}
+    return {"message": format_question(nxt, fr), "done": False}
+
+
+def format_question(q: dict[str, Any], fr: bool) -> str:
+    s = f"[{q['id']}] {q['text']}"
+    if q.get("options"):
+        s += "\n" + "\n".join(f"  {i}. {o}" for i, o in enumerate(q["options"], 1))
+    left = q.get("remaining")
+    tail = ("« passer » pour sauter, « pause » pour arrêter" if fr else "\"skip\" to skip, \"pause\" to stop")
+    if left:
+        tail += (f" · {left} restantes" if fr else f" · {left} left")
+    return s + "\n\n(" + tail + ")"

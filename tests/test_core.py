@@ -180,3 +180,61 @@ def test_red_line_is_never_cut_in_the_middle(st):
     out = "\n".join(core.compile_user(st, "fr")["lines"])
     assert line in out and "…" not in out
     assert all(len(l) <= core.LINE_LIMIT for l in core.compile_user(st, "fr")["lines"])
+
+
+def start(st, lang="fr"):
+    st.set_meta(lang=lang, started=1.0)
+    core.next_question(st, lang=lang)
+    core.set_active(st, True)
+
+
+def test_plain_reply_is_saved_and_next_question_returned(st):
+    start(st)
+    r = core.interview_turn(st, "tout")
+    assert st.answers()["0.1"]["value"] == "Tout" and st.answers()["0.1"]["quote"] == "tout"
+    assert "[0.2]" in r["message"] and not r["done"]
+    assert st.meta()["awaiting"] == "0.2"
+
+
+def test_number_reply_and_unclear_reply(st):
+    start(st)
+    assert core.interview_turn(st, "2")
+    assert st.answers()["0.1"]["value"] == "Seulement le professionnel"
+    r = core.interview_turn(st, "bof je sais pas trop")
+    assert "0.2" not in st.answers() and "[0.2]" in r["message"] and "numéro" in r["message"]
+
+
+def test_skip_and_stop(st):
+    start(st)
+    core.interview_turn(st, "passer")
+    assert st.answers()["0.1"]["skipped"]
+    r = core.interview_turn(st, "pause")
+    assert r["done"] and core.interview_turn(st, "tout") is None
+
+
+def test_inactive_interview_lets_the_model_answer(st):
+    assert core.interview_turn(st, "tout") is None
+    st.set_meta(awaiting="0.1", awaiting_ts=time.time(), active=False)
+    assert core.interview_turn(st, "tout") is None
+
+
+def test_full_express_run_ends_cleanly(st):
+    start(st)
+    n = 0
+    while True:
+        qid = st.meta()["awaiting"]
+        q = core.render(qid, "fr")
+        reply = "1" if q.get("options") else "une réponse libre"
+        r = core.interview_turn(st, reply)
+        n += 1
+        assert n < 40
+        if r["done"]:
+            break
+    assert n == 15 and not st.meta()["active"] and "compile" in r["message"]
+    assert len([q for q in st.answers() if not st.answers()[q]["skipped"]]) == 15
+
+
+def test_stale_open_question_expires(st):
+    start(st)
+    assert core.interview_turn(st, "tout", time.time() + 13 * 3600) is None
+    assert not st.meta()["active"]
