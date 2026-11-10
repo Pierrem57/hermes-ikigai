@@ -63,9 +63,9 @@ def test_inferred_never_reaches_user_or_soul(st):
 
 
 def test_local_only_never_leaves(st):
-    fill(st, {"0.1": "Tout", "5.5": "les dossiers clients", "0.2": "Santé"})
+    fill(st, {"0.1": "Tout", "5.5": "les dossiers clients"})
     blob = "\n".join(core.compile_user(st)["lines"]) + core.compile_soul(st) + "".join(core.compile_sheets(st).values())
-    assert "dossiers clients" not in blob and "Santé" not in blob
+    assert "dossiers clients" not in blob
 
 
 def test_user_md_fits_budget_and_drops_lowest_priority_first(st):
@@ -238,3 +238,31 @@ def test_stale_open_question_expires(st):
     start(st)
     assert core.interview_turn(st, "tout", time.time() + 13 * 3600) is None
     assert not st.meta()["active"]
+
+
+def test_widget_buttons_and_desktop_only(st):
+    q = core.next_question(st, lang="fr")
+    assert "::preview" not in core.format_question(q, True, st)       # unknown surface: plain text
+    st.set_meta(platform="desktop")
+    out = core.format_question(q, True, st)
+    assert '::preview{file="' in out and "1. Tout" in out             # text fallback kept
+    path = Path(out.split('file="')[1].split('"')[0])
+    html = path.read_text(encoding="utf-8")
+    assert html.count('class="opt"') == 3 and "window.hermes.send" in html and "Valider" in html
+    st.set_meta(buttons=False)
+    assert "::preview" not in core.format_question(q, True, st)
+
+
+def test_text_question_widget_has_only_skip_and_pause(st):
+    q = core.render(next(i for i, v in core.questionnaire()["questions"].items() if v["type"] == "text"), "fr")
+    html = core.widget_html(q, True)
+    assert 'class="opt"' not in html and 'id="ok"' not in html
+    assert 'data-send="passer"' in html and 'data-send="pause"' in html
+
+
+def test_button_number_is_consumed(st):
+    st.set_meta(lang="fr", platform="desktop")
+    core.next_question(st, lang="fr")
+    core.set_active(st, True)
+    turn = core.interview_turn(st, "1")
+    assert st.answers()["0.1"]["value"] == "Tout" and turn["message"].startswith("[0.2]")

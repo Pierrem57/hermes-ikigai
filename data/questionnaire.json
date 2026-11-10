@@ -212,7 +212,7 @@
    "id": "0.2",
    "type": "choice",
    "to": [
-    "L"
+    "U"
    ],
    "fr": "Quels sujets sont interdits pour la mémoire ?",
    "en": "Which topics are off limits for memory?",
@@ -229,6 +229,10 @@
     "Family",
     "Politics",
     "None"
+   ],
+   "multi": true,
+   "exclusive": [
+    5
    ]
   },
   "0.3": {

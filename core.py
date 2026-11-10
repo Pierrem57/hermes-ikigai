@@ -60,6 +60,9 @@ def render(qid: str, lang: str = "en") -> dict[str, Any]:
     out = {"id": qid, "type": q["type"], "text": q[lg], "module": module_of(qid)}
     if q.get("opts_" + lg):
         out["options"] = q["opts_" + lg]
+    if q.get("multi"):
+        out["multi"] = True
+        out["exclusive"] = list(q.get("exclusive") or [])   # 1-based option numbers
     return out
 
 
@@ -193,6 +196,7 @@ def status(store: Store) -> dict[str, Any]:
 
 # Short labels for the lines that may reach USER.md (French and English).
 _LABELS = {
+    "0.2": ("Ne pas mémoriser", "Never memorize"),
     "1.1": ("Appel", "Call"), "1.2": ("Rôle", "Role"), "1.3": ("Objectif 3 mois", "3-month goal"),
     "1.4": ("Longueur", "Length"), "1.5": ("Décision", "Decisions"), "1.6": ("Sans demander", "Without asking"),
     "1.11": ("Horaires", "Hours"), "1.12": ("Ligne rouge", "Red line"),
@@ -207,7 +211,7 @@ _LABELS = {
 # (theme, [(qid, priority)]); priority 1 is kept longest when the budget is tight.
 _USER_THEMES = [
     ("Identité" , "Identity", [("1.1", 1), ("1.2", 2), ("3.7", 4)]),
-    ("Règles", "Rules", [("1.12", 1), ("1.6", 1), ("5.1", 1), ("5.2", 1), ("5.3", 1), ("5.4", 2),
+    ("Règles", "Rules", [("1.12", 1), ("0.2", 1), ("1.6", 1), ("5.1", 1), ("5.2", 1), ("5.3", 1), ("5.4", 2),
                          ("1.5", 2), ("1.4", 2), ("10.3", 3)]),
     ("Format", "Format", [("4.7", 2), ("7.2", 3), ("7.4", 4)]),
     ("Contexte", "Context", [("1.11", 3), ("3.2", 3), ("3.5", 4), ("7.3", 4)]),
@@ -250,18 +254,56 @@ def _clip(s: str, n: int) -> str:
     return s if len(s) <= n else s[: max(0, n - 1)].rstrip() + "…"
 
 
-def compile_user(store: Store, lang: str | None = None) -> dict[str, Any]:
-    """Build the USER.md proposal: one line per theme, <=120 chars, whole file <=1375."""
+SEP = "\n§\n"   # entry separator of Hermes memory files
+# Entries this plugin owns in USER.md: its themed lines and its pointer to the sheets. Everything
+# else in the file belongs to the user or the agent and is never proposed for removal.
+_MANAGED = re.compile(r"^(Identité|Identity|Règles|Rules|Format|Contexte|Context|Objectifs|Goals) — "
+                      r"|^(Détail du profil Ikigai|Ikigai profile detail|Détail|Detail) ?: ")
+
+
+def split_entries(text: str) -> list[str]:
+    return [e.strip() for e in (text or "").split(SEP) if e.strip()]
+
+
+def is_managed(entry: str) -> bool:
+    return bool(_MANAGED.match(entry))
+
+
+def _detail_line(store: Store, fr: bool) -> str:
+    """Pointer to the detailed sheets, as a path the agent can open. Kept within LINE_LIMIT."""
+    head = "Détail du profil Ikigai : " if fr else "Ikigai profile detail: "
+    path = str(store.root / "profile")
+    home = str(Path.home())
+    short = "~" + path[len(home):] if path.startswith(home + os.sep) else path
+    for p in (short, path):
+        if len(head) + len(p) + 1 <= LINE_LIMIT:
+            return f"{head}{p}/"
+    return head + "$HERMES_HOME/plugin-data/ikigai/profile/"
+
+
+def compile_user(store: Store, lang: str | None = None, current: str = "") -> dict[str, Any]:
+    """Build the USER.md proposal and MERGE it with the file's current content.
+
+    Ikigai lines: one or more per theme, each <=120 chars. Entries already in USER.md that Ikigai
+    does not own are kept as they are and count against the 1,375-character limit first; Ikigai
+    then drops its own lowest-priority facts until the whole file fits. ``operations`` is the
+    minimal change set for the memory tool: stale Ikigai lines removed, new ones added."""
     lg = _lang(lang or store.meta().get("lang", "en"))
     idx = 0 if lg == "fr" else 1
     use = _usable(store)
     q = questionnaire()["questions"]
-    items = []  # (theme_idx, order, prio, text)
+    items = []  # [theme_idx, order, prio, qid, text]
     for ti, (tfr, ten, ids) in enumerate(_USER_THEMES):
         for order, (qid, prio) in enumerate(ids):
-            if qid in use and "U" in q[qid]["to"]:
-                items.append([ti, order, prio, qid, _clip(use[qid]["value"], 70)])
-    detail = "Détail : profile/" if lg == "fr" else "Detail: profile/"
+            if qid not in use or "U" not in q[qid]["to"]:
+                continue
+            if q[qid].get("multi") and _is_exclusive_answer(qid, use[qid]["value"]):
+                continue                     # "None of them" is not a rule worth a line
+            items.append([ti, order, prio, qid, _clip(use[qid]["value"], 70)])
+    detail = _detail_line(store, lg == "fr")
+    existing = split_entries(current)
+    kept = [e for e in existing if not is_managed(e)]
+    budget = USER_LIMIT - (len(SEP.join(kept)) + len(SEP) if kept else 0)
 
     def build(its: list[list[Any]]) -> list[str]:
         """Pack each theme's parts into lines of at most LINE_LIMIT chars. A part is never cut
@@ -290,14 +332,30 @@ def compile_user(store: Store, lang: str | None = None) -> dict[str, Any]:
     dropped: list[str] = []
     while True:
         lines = build(items)
-        size = len("\n§\n".join(lines))
-        if size <= USER_LIMIT or not items:
+        if len(SEP.join(lines)) <= budget or not items:
             break
-        worst = max(items, key=lambda i: (i[2], -i[1]))
+        # lowest priority first; among equals, the last one of the last theme (the red line and
+        # the name are the first entries of their themes, so they go last)
+        worst = max(items, key=lambda i: (i[2], i[0], i[1]))
         items.remove(worst)
         dropped.append(worst[3])
-    return {"lines": lines, "chars": size, "limit": USER_LIMIT, "dropped": dropped,
-            "kept": [i[3] for i in items], "separator": "\n§\n"}
+    if lines and len(SEP.join(lines)) > budget:
+        lines = []                           # not even the pointer fits: propose nothing
+    merged = kept + lines
+    stale = [e for e in existing if is_managed(e) and e not in lines]
+    fresh = [l for l in lines if l not in existing]
+    ops = ([{"action": "remove", "old_text": e} for e in stale]
+           + [{"action": "add", "content": l} for l in fresh])
+    return {"lines": lines, "kept_entries": kept, "merged": merged, "chars": len(SEP.join(merged)),
+            "limit": USER_LIMIT, "dropped": dropped, "kept": [i[3] for i in items],
+            "operations": ops, "separator": SEP}
+
+
+def _is_exclusive_answer(qid: str, value: str) -> bool:
+    qd = questionnaire()["questions"][qid]
+    texts = {qd[k][n - 1].lower() for k in ("opts_fr", "opts_en") for n in qd.get("exclusive", [])
+             if k in qd and 1 <= n <= len(qd[k])}
+    return value.strip().lower() in texts
 
 
 def compile_soul(store: Store, lang: str | None = None) -> str:
@@ -353,8 +411,9 @@ def diff_snapshots(old: dict[str, Any], new: dict[str, Any]) -> dict[str, list[s
 
 
 def user_diff(current: str, proposed_lines: list[str]) -> str:
-    proposed = "\n§\n".join(proposed_lines)
-    return "".join(difflib.unified_diff(current.splitlines(True), (proposed + "\n").splitlines(True),
+    """Unified diff between the current USER.md and the merged proposal (kept entries + Ikigai lines)."""
+    proposed = SEP.join(proposed_lines)
+    return "".join(difflib.unified_diff(current.splitlines(True), proposed.splitlines(True),
                                         "USER.md (actuel)", "USER.md (proposé)"))
 
 
@@ -461,8 +520,8 @@ def awaiting_context(store: Store, user_message: str, now: float | None = None) 
     now = now or _now()
     m = store.meta()
     qid = m.get("awaiting")
-    if not qid or now - m.get("awaiting_ts", 0) > AWAIT_TTL_H * 3600:
-        return None
+    if not qid or m.get("active") or now - m.get("awaiting_ts", 0) > AWAIT_TTL_H * 3600:
+        return None        # an active interview is answered by interview_turn, in its own session only
     q = render(qid, m.get("lang", "en"))
     return ("[ikigai] An interview question is open: %s «%s». If the user's message answers it, call "
             "ikigai_save(id='%s', value=<answer>, quote=<their exact words>), then call ikigai_next and "
@@ -475,9 +534,18 @@ def awaiting_context(store: Store, user_message: str, now: float | None = None) 
 # While an interview is active, the plugin itself consumes the user's reply (via a pre_llm_call
 # block), saves it and returns the next question. No model call, no tool call: it cannot be
 # derailed by a model that ignores the open question, and it costs no tokens.
+#
+# The interview belongs to the session that started it: replies from any other chat, from cron
+# jobs or from subagents are never consumed.
 
 _SKIP = re.compile(r"^\s*(passer?|skip|pass|suivante?|next|\.)\s*$", re.I)
 _STOP = re.compile(r"^\s*(pause|stop|arr[êe]te|arr[êe]ter|quit|quitter|exit)\s*$", re.I)
+_TAG = re.compile(r"^\s*ikigai:(\d+\.\d+):(.*)$", re.S)      # what a widget button sends
+_STRONG = re.compile(r"[,;/+&|]")
+_WEAK = re.compile(r"\b(?:et|and)\b", re.I)
+_SPACES = re.compile(r"\s+")
+NON_INTERACTIVE = frozenset({"cron", "subagent", "oneshot"})
+_LOCAL = frozenset({"desktop", "tui", "cli", "local"})
 
 
 def match_option(text: str, options: list[str]) -> str | None:
@@ -491,58 +559,263 @@ def match_option(text: str, options: list[str]) -> str | None:
     return hits[0] if len(hits) == 1 else None
 
 
+def _match_token(tok: str, options: list[str]) -> list[str]:
+    one = match_option(tok, options)
+    if one:
+        return [one]
+    if tok.isdigit() and len(options) <= 9 and all(1 <= int(ch) <= len(options) for ch in tok):
+        return [options[int(ch) - 1] for ch in tok]            # "13" means 1 and 3
+    for splitter in (_WEAK, _SPACES):
+        parts = [p for p in (x.strip() for x in splitter.split(tok)) if p]
+        if len(parts) > 1:
+            got = [_match_token(p, options) for p in parts]
+            if all(got):
+                return [o for g in got for o in g]
+    return []
+
+
+def match_options(text: str, options: list[str]) -> list[str]:
+    """Several options in one reply: "1,3", "1 3", "13", "santé et famille". Returns the chosen
+    options in questionnaire order, or [] as soon as one part of the reply matches nothing."""
+    whole = match_option(text, options)
+    if whole:
+        return [whole]
+    picked: list[str] = []
+    for tok in (t.strip() for t in _STRONG.split(text)):
+        if not tok:
+            continue
+        got = _match_token(tok, options)
+        if not got:
+            return []
+        picked += got
+    return [o for o in options if o in picked]
+
+
 def set_active(store: Store, on: bool) -> None:
     store.set_meta(active=on, active_ts=_now())
 
 
-def interview_turn(store: Store, text: str, now: float | None = None) -> dict[str, Any] | None:
-    """Handle one reply. Returns None when no interview is active (let the model answer),
-    else {"message": str, "done": bool}."""
+_ROUTE = re.compile(r"^(agent:|local-|[a-z]+:[a-z]+:)")
+
+
+def bind_owner(store: Store, session_id: str = "", session_key: str = "", platform: str = "") -> None:
+    """Remember which session started the interview. A chat's routing key (``agent:main:...``,
+    ``telegram:dm:...``) is not a session id and is kept apart; ``confirmed`` turns true on the
+    first reply that matches."""
+    known = [i for i in dict.fromkeys([session_id or "", session_key or ""]) if i and not _ROUTE.match(i)]
+    routing = [i for i in dict.fromkeys([session_key or "", session_id or ""]) if i and _ROUTE.match(i)]
+    store.set_meta(owner={"ids": known, "routing": routing, "platform": platform or "", "confirmed": False})
+
+
+def _same_surface(a: str, b: str) -> bool:
+    return not b or a == b or (a in _LOCAL and b in _LOCAL)
+
+
+def _owns(store: Store, m: dict[str, Any], session_id: str, parent_session_id: str, platform: str) -> bool:
+    if platform in NON_INTERACTIVE:
+        return False
+    if not session_id:                      # the host did not say which session this is
+        return True
+    owner = m.get("owner") or {}
+    ids = list(owner.get("ids") or [])
+    known = session_id in ids or session_id in (owner.get("routing") or [])
+    # Same chat after a compaction: the gateway hands the new session the old one as its parent.
+    rotated = bool(parent_session_id) and parent_session_id in ids
+    # Adopt only when nothing of this interview has been answered yet and the surface is the same:
+    # the chat had no session id (only a routing key) when the interview started.
+    adopt = not ids and not owner.get("confirmed") and _same_surface(platform, owner.get("platform", ""))
+    if not (known or rotated or adopt):
+        return False
+    if adopt or rotated:
+        store.set_meta(owner={**owner, "ids": list(dict.fromkeys(ids + [session_id])), "confirmed": True})
+    elif not owner.get("confirmed"):
+        store.set_meta(owner={**owner, "confirmed": True})
+    return True
+
+
+def _scope(m: dict[str, Any]) -> tuple[str | None, bool]:
+    module = m.get("module") or None
+    return module, module is None and not m.get("full", False)
+
+
+def next_in_scope(store: Store, lang: str | None = None) -> dict[str, Any] | None:
+    """Next question of the interview in progress: the chosen module, else the express or full path."""
+    module, express = _scope(store.meta())
+    return next_question(store, module=module, express=express, lang=lang)
+
+
+def interview_turn(store: Store, text: str, now: float | None = None, session_id: str = "",
+                   parent_session_id: str = "", platform: str = "") -> dict[str, Any] | None:
+    """Handle one reply. Returns None when this message is not for the interview (let the model
+    answer), else {"message": str, "done": bool}."""
     now = now or _now()
     m = store.meta()
-    if not m.get("active") or not m.get("awaiting"):
-        return None
-    if now - m.get("awaiting_ts", 0) > AWAIT_TTL_H * 3600:
-        store.set_meta(active=False, awaiting=None)
-        return None
     lg = m.get("lang", "en")
     fr = lg == "fr"
+    tag = _TAG.match(text or "")
+    active = bool(m.get("active") and m.get("awaiting"))
+    if active and now - m.get("awaiting_ts", 0) > AWAIT_TTL_H * 3600:
+        store.set_meta(active=False, awaiting=None, pending_show=False)
+        active = False
+    if not active:
+        if tag:                             # a button of an old question, clicked after the end
+            return {"message": "L'entretien n'est pas en cours. /ikigai resume pour reprendre." if fr
+                    else "No interview is running. /ikigai resume to continue.", "done": True}
+        return None
+    if not tag and not _owns(store, m, session_id, parent_session_id, platform):
+        return None
+    qid = m["awaiting"]
+    module, express = _scope(m)
+    q = render(qid, lg)
+    q["remaining"] = len(pending_ids(store, module, express))
+    if tag and tag.group(1) != qid:         # a button of a question that is already behind us
+        note = "Cette question est déjà passée. Voici la question en cours." if fr \
+            else "That question is already behind us. Here is the current one."
+        return {"message": f"{note}\n\n{format_question(q, fr, store)}", "done": False}
+    if m.get("pending_show"):
+        store.set_meta(pending_show=False)
+        if not tag:                         # the "go" after /ikigai start: show, do not consume
+            return {"message": format_question(q, fr, store), "done": False}
+    if tag:
+        text = tag.group(2)
     if _STOP.match(text):
-        store.set_meta(active=False, awaiting=None)
+        store.set_meta(active=False, awaiting=None, pending_show=False)
         return {"message": "Entretien en pause. /ikigai resume pour reprendre." if fr
                 else "Interview paused. /ikigai resume to continue.", "done": True}
-    qid = m["awaiting"]
-    q = render(qid, lg)
     if _SKIP.match(text):
         store.save(qid, "", "", "declared", skipped=True)
     else:
         value = text.strip()
-        if q["type"] in ("choice", "scale"):
-            opt = match_option(value, q.get("options", []))
+        opts = q.get("options") or []
+        bare = bool(re.fullmatch(r"[\d\s,;]+", value))          # numbers only: quote the option text
+        if q.get("multi"):
+            chosen = match_options(value, opts)
+            excl = {opts[n - 1] for n in q.get("exclusive", []) if 1 <= n <= len(opts)}
+            clash = sorted(excl & set(chosen)) if len(chosen) > 1 else []
+            if not chosen or clash:
+                if clash:
+                    hint = (f"« {clash[0]} » ne se combine pas avec les autres options." if fr
+                            else f"\"{clash[0]}\" cannot be combined with the other options.")
+                else:
+                    hint = ("Réponds par un ou plusieurs numéros (ex. 1,3) ou textes d'options, ou « passer »."
+                            if fr else "Reply with one or more numbers (e.g. 1,3) or option texts, or \"skip\".")
+                return {"message": f"{hint}\n\n{format_question(q, fr, store)}", "done": False}
+            joined = ", ".join(chosen)
+            store.save(qid, joined, joined if bare else value, "declared")
+        elif opts:
+            opt = match_option(value, opts)
             if opt is None:
                 hint = ("Réponds par le numéro ou le texte d'une option, ou « passer »." if fr
                         else "Reply with the number or the text of an option, or \"skip\".")
-                return {"message": f"{hint}\n\n{format_question(q, fr)}", "done": False}
-            store.save(qid, opt, value, "declared")
+                return {"message": f"{hint}\n\n{format_question(q, fr, store)}", "done": False}
+            store.save(qid, opt, opt if bare else value, "declared")
         else:
-            if len(value) > 1500:
-                value = value[:1500]
+            value = value[:1500]
             store.save(qid, value, value, "declared")
-    nxt = next_question(store, lang=lg)
+    nxt = next_in_scope(store, lg)
     if nxt is None:
-        store.set_meta(active=False, awaiting=None, last_checkin=now)
-        return {"message": ("Terminé, merci. Lance /ikigai compile pour voir ce que je propose d'écrire dans USER.md."
-                            if fr else "Done, thank you. Run /ikigai compile to see what I would write to USER.md."),
-                "done": True}
-    return {"message": format_question(nxt, fr), "done": False}
+        store.set_meta(active=False, awaiting=None, pending_show=False, last_checkin=now)
+        if module:
+            end = (f"Module « {module} » terminé. /ikigai more <module> pour un autre, /ikigai compile pour "
+                   "voir ce que je propose d'écrire dans USER.md." if fr else
+                   f"Module \"{module}\" complete. /ikigai more <module> for another one, /ikigai compile "
+                   "to see what I would write to USER.md.")
+        else:
+            end = ("Terminé, merci. Lance /ikigai compile pour voir ce que je propose d'écrire dans USER.md."
+                   if fr else "Done, thank you. Run /ikigai compile to see what I would write to USER.md.")
+        return {"message": end, "done": True}
+    return {"message": format_question(nxt, fr, store), "done": False}
 
 
-def format_question(q: dict[str, Any], fr: bool) -> str:
+# ---------------------------------------------------------------- answer buttons (desktop widget)
+
+_WIDGET_CSS = """<style>
+.ik{display:flex;flex-direction:column;gap:6px;align-items:flex-start;padding:4px 0}
+.ik button{font:inherit;color:var(--foreground);background:var(--card);border:1px solid var(--border);
+border-radius:8px;padding:8px 12px;cursor:pointer;text-align:left}
+.ik button:hover{border-color:var(--accent)}
+.ik button:disabled{cursor:default;opacity:.55}
+.ik .opt.sel{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.ik .opt b{margin-right:6px;color:var(--muted-foreground)}
+.ik.multi .opt::before{content:'\\2610';margin-right:8px;color:var(--muted-foreground)}
+.ik.multi .opt.sel::before{content:'\\2611';color:var(--accent)}
+.ik .row{display:flex;gap:8px;margin-top:4px}
+.ik #ok{background:var(--accent);color:var(--card);border-color:var(--accent);opacity:.45}
+.ik #ok.on{opacity:1}
+.ik .alt{color:var(--muted-foreground)}
+</style>"""
+
+_WIDGET_JS = """<script>
+const QID=%(qid)s,MULTI=%(multi)s,EXCL=%(excl)s;
+const all=()=>[...document.querySelectorAll('.ik button')],opts=[...document.querySelectorAll('.opt')];
+const ok=document.getElementById('ok'),picked=()=>opts.filter(b=>b.classList.contains('sel'));
+function refresh(){if(ok){const n=picked().length;ok.disabled=!n;ok.classList.toggle('on',!!n);}}
+function send(t){all().forEach(b=>b.disabled=true);
+ const back=()=>{all().forEach(b=>b.disabled=false);refresh();};
+ try{const r=window.hermes.send('ikigai:'+QID+':'+t);
+  if(r&&r.then)r.then(a=>{if(a&&a.ok===false)back();},back);}catch(e){back();}}
+opts.forEach(b=>b.onclick=()=>{const n=+b.dataset.n,on=MULTI?!b.classList.contains('sel'):true;
+ if(!MULTI||(on&&EXCL.includes(n)))opts.forEach(x=>x.classList.remove('sel'));
+ if(MULTI&&on&&!EXCL.includes(n))opts.forEach(x=>{if(EXCL.includes(+x.dataset.n))x.classList.remove('sel');});
+ b.classList.toggle('sel',on);refresh();});
+if(ok)ok.onclick=()=>{const s=picked().map(b=>b.dataset.n);if(s.length)send(s.join(','));};
+document.querySelectorAll('[data-send]').forEach(b=>b.onclick=()=>send(b.dataset.send));
+</script>"""
+
+
+def widget_html(q: dict[str, Any], fr: bool) -> str:
+    """Answer buttons for one question, in the host theme. A choice or scale question gets one
+    button per option plus Confirm (several can be ticked when the question is ``multi``); every
+    question gets Skip and Pause. A click sends ``ikigai:<id>:<answer>`` as a hidden user turn
+    (``window.hermes.send``), so a button of an old question can never answer the current one."""
+    esc = lambda t: (str(t).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                     .replace('"', "&quot;"))
+    opts = q.get("options") or []
+    multi = bool(q.get("multi"))
+    ok, skip, pause = ("Valider", "Passer", "Pause") if fr else ("Confirm", "Skip", "Pause")
+    btns = "\n".join(f'<button type="button" class="opt" data-n="{i}"><b>{i}</b> {esc(o)}</button>'
+                     for i, o in enumerate(opts, 1))
+    confirm = f'<button type="button" id="ok" disabled>{ok}</button>\n' if opts else ""
+    js = _WIDGET_JS % {"qid": json.dumps(q["id"]), "multi": "true" if multi else "false",
+                       "excl": json.dumps([int(n) for n in q.get("exclusive", [])])}
+    return (f'{_WIDGET_CSS}\n<div class="ik{" multi" if multi else ""}">\n{btns}\n<div class="row">{confirm}'
+            f'<button type="button" class="alt" data-send="{"passer" if fr else "skip"}">{skip}</button>\n'
+            f'<button type="button" class="alt" data-send="pause">{pause}</button></div></div>\n{js}\n')
+
+
+def write_widget(store: Store, q: dict[str, Any], fr: bool) -> Path:
+    html = widget_html(q, fr)
+    d = store.root / "widgets"
+    d.mkdir(parents=True, exist_ok=True, mode=0o700)
+    path = d / f"q_{q['id'].replace('.', '_')}_{'fr' if fr else 'en'}.html"
+    if not path.exists() or path.read_text(encoding="utf-8") != html:
+        path.write_text(html, encoding="utf-8")
+    return path
+
+
+def buttons_enabled(store: Store) -> bool:
+    """Buttons need a surface that renders ``::preview`` in an assistant message (the desktop app).
+    Auto-detected from the platform of the last call; ``/ikigai buttons on|off|auto`` overrides."""
+    m = store.meta()
+    forced = m.get("buttons")
+    return bool(forced) if forced is not None else m.get("platform") == "desktop"
+
+
+def format_question(q: dict[str, Any], fr: bool, store: Store | None = None) -> str:
+    """The question as text (always answerable by typing), plus its buttons when ``store`` is given
+    and the surface renders them. Pass no store for slash-command output: it is shown as plain text."""
     s = f"[{q['id']}] {q['text']}"
+    if q.get("multi"):
+        s += " (plusieurs choix possibles)" if fr else " (several choices allowed)"
     if q.get("options"):
         s += "\n" + "\n".join(f"  {i}. {o}" for i, o in enumerate(q["options"], 1))
     left = q.get("remaining")
     tail = ("« passer » pour sauter, « pause » pour arrêter" if fr else "\"skip\" to skip, \"pause\" to stop")
+    if q.get("multi"):
+        tail = ("plusieurs numéros possibles, ex. 1,3 · " if fr else "several numbers allowed, e.g. 1,3 · ") + tail
     if left:
         tail += (f" · {left} restantes" if fr else f" · {left} left")
-    return s + "\n\n(" + tail + ")"
+    s += "\n\n(" + tail + ")"
+    if store is not None and buttons_enabled(store):
+        s += f'\n\n::preview{{file="{write_widget(store, q, fr)}"}}'
+    return s

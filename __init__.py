@@ -68,14 +68,15 @@ def _t_status(args: dict, **_: Any) -> str:
 
 def _t_compile(args: dict, **_: Any) -> str:
     st = _store()
-    user = core.compile_user(st, args.get("lang") or None)
-    files = core.write_compiled(st, args.get("lang") or None)
     cur = _user_md()
-    return _ok(user_md_lines=user["lines"], chars=user["chars"], limit=user["limit"],
-               separator=user["separator"], dropped_for_budget=user["dropped"],
-               diff=core.user_diff(cur, user["lines"]), files=files,
-               apply="Show the diff to the user. If they agree, replace USER.md entries with ONE call to "
-                     "the memory tool (target='user', operations=[remove old entries..., add each line]). "
+    user = core.compile_user(st, args.get("lang") or None, current=cur)
+    files = core.write_compiled(st, args.get("lang") or None)
+    return _ok(user_md_lines=user["lines"], kept_entries=user["kept_entries"], operations=user["operations"],
+               chars=user["chars"], limit=user["limit"], separator=user["separator"],
+               dropped_for_budget=user["dropped"], diff=core.user_diff(cur, user["merged"]), files=files,
+               apply="This is a MERGE: entries Ikigai does not own stay untouched. Show the diff to the user. "
+                     "If they agree, apply exactly `operations` in ONE call to the memory tool "
+                     "(target='user'); with no operations, USER.md is already up to date. "
                      "Do not write SOUL.md: point to the draft file instead.")
 
 
@@ -109,23 +110,43 @@ HELP = {
            "/ikigai status — progress and stale answers\n"
            "/ikigai compile — propose USER.md, SOUL.md draft and sheets\n"
            "/ikigai pause | off | on — stop asking, disable nudges, re-enable\n"
-           "/ikigai forget <id> — delete one answer · /ikigai erase confirm — delete everything"),
+           "/ikigai buttons on|off|auto — answer buttons (auto: desktop app only)\n"
+           "/ikigai forget <id> — delete one answer (it is asked again on resume) · "
+           "/ikigai erase confirm — delete everything"),
     "fr": ("/ikigai start [fr|en] — lance l'entretien express de 10 minutes\n"
            "/ikigai resume — reprend là où tu t'es arrêté\n"
            "/ikigai more [module] — approfondir (modules : %s)\n"
            "/ikigai status — avancement et réponses périmées\n"
            "/ikigai compile — propose USER.md, brouillon de SOUL.md et fiches\n"
            "/ikigai pause | off | on — arrêter les questions, couper les rappels, les réactiver\n"
-           "/ikigai forget <id> — supprime une réponse · /ikigai erase confirm — supprime tout"),
+           "/ikigai buttons on|off|auto — boutons de réponse (auto : application de bureau seulement)\n"
+           "/ikigai forget <id> — supprime une réponse (reposée au prochain resume) · "
+           "/ikigai erase confirm — supprime tout"),
 }
 
 
-def _fmt_q(q: dict, lg: str) -> str:
-    return core.format_question(q, lg == "fr")
+def _open(st: core.Store, q: dict | None, lg: str, who: dict, intro: str = "", done: str = "") -> str:
+    """Start answering in the calling session. Slash output is shown as plain text, so where buttons
+    exist the question itself is shown by the next message (any text), as a normal reply."""
+    core.set_active(st, bool(q))
+    if not q:
+        st.set_meta(pending_show=False)
+        return done
+    core.bind_owner(st, who.get("session_id", ""), who.get("session_key", ""), who.get("platform", ""))
+    if core.buttons_enabled(st):
+        st.set_meta(pending_show=True)
+        return intro + ("Envoie « go » (ou n'importe quel message) pour afficher la question avec ses boutons."
+                        if lg == "fr" else
+                        "Send \"go\" (or any message) to show the question with its buttons.")
+    st.set_meta(pending_show=False)
+    return intro + core.format_question(q, lg == "fr")
 
 
-def _cmd(raw: str, **_: Any) -> str:
+def _cmd(raw: str, session_id: str = "", session_key: str = "", platform: str = "", **_: Any) -> str:
     st = _store()
+    who = {"session_id": session_id or "", "session_key": session_key or "", "platform": platform or ""}
+    if platform and st.meta().get("platform") != platform:
+        st.set_meta(platform=platform)
     parts = (raw or "").split()
     sub = parts[0].lower() if parts else "help"
     rest = parts[1:]
@@ -136,26 +157,24 @@ def _cmd(raw: str, **_: Any) -> str:
     if sub == "start":
         if rest and rest[0][:2].lower() in ("fr", "en"):
             lg = "fr" if rest[0].lower().startswith("fr") else "en"
-        st.set_meta(lang=lg, started=st.meta().get("started") or core._now(), full=False)
+        st.set_meta(lang=lg, started=st.meta().get("started") or core._now(), full=False, module=None)
         intro = ("Entretien express : ~12 questions, tout est stocké en local, rien n'entre dans USER.md "
-                 "sans ton accord. Réponds ici, en une phrase.\n\n" if lg == "fr" else
+                 "sans ton accord. Une phrase suffit par réponse.\n\n" if lg == "fr" else
                  "Express interview: ~12 questions, everything stays local, nothing reaches USER.md "
-                 "without your approval. Just answer here, one sentence is enough.\n\n")
-        q = core.next_question(st, lang=lg)
-        core.set_active(st, bool(q))
-        return intro + (_fmt_q(q, lg) if q else "Already complete. /ikigai compile")
+                 "without your approval. One sentence per answer is enough.\n\n")
+        return _open(st, core.next_in_scope(st, lg), lg, who, intro,
+                     "Déjà complet. /ikigai more <module> pour approfondir, /ikigai compile pour compiler."
+                     if lg == "fr" else "Already complete. /ikigai more <module> to go deeper, /ikigai compile.")
     if sub == "resume":
-        q = core.next_question(st, lang=lg)
-        core.set_active(st, bool(q))
-        return _fmt_q(q, lg) if q else ("Terminé : /ikigai compile" if lg == "fr" else "Done: /ikigai compile")
+        return _open(st, core.next_in_scope(st, lg), lg, who, "",
+                     "Terminé : /ikigai compile" if lg == "fr" else "Done: /ikigai compile")
     if sub == "more":
-        mod = rest[0] if rest else None
+        mod = rest[0].lower() if rest else None
         if mod and mod not in {m["id"] for m in core.modules()}:
             return ("Module inconnu. Modules : " if lg == "fr" else "Unknown module. Modules: ") + mods
-        st.set_meta(full=True)
-        q = core.next_question(st, module=mod, express=False, lang=lg)
-        core.set_active(st, bool(q))
-        return _fmt_q(q, lg) if q else ("Module terminé." if lg == "fr" else "Module complete.")
+        st.set_meta(full=True, module=mod)
+        return _open(st, core.next_in_scope(st, lg), lg, who, "",
+                     "Module terminé." if lg == "fr" else "Module complete.")
     if sub == "status":
         s = core.status(st)
         rows = "\n".join(f"  {m['module']:<9} {m['answered']}/{m['total']}"
@@ -167,19 +186,35 @@ def _cmd(raw: str, **_: Any) -> str:
         if not r["user_md_lines"]:
             return "Rien à compiler pour l'instant." if lg == "fr" else "Nothing to compile yet."
         lines = "\n".join(r["user_md_lines"])
-        return (f"USER.md proposé ({r['chars']}/{r['limit']} caractères) :\n\n{lines}\n\n"
-                f"Fiches : {r['files']['profile_dir']}\n"
-                f"Brouillon SOUL.md : {r['files']['soul_draft'] or '(rien)'}\n\n"
-                "Dis-moi « applique » pour que je mette à jour USER.md (avec ton approbation)."
-                if lg == "fr" else
-                f"Proposed USER.md ({r['chars']}/{r['limit']} chars):\n\n{lines}\n\n"
-                f"Sheets: {r['files']['profile_dir']}\nSOUL.md draft: {r['files']['soul_draft'] or '(none)'}\n\n"
-                "Say \"apply\" and I will update USER.md (with your approval).")
+        kept, ops = len(r["kept_entries"]), r["operations"]
+        adds = sum(1 for o in ops if o["action"] == "add")
+        rems = len(ops) - adds
+        if lg == "fr":
+            change = f"{adds} ligne(s) à ajouter, {rems} à retirer" if ops else "USER.md est déjà à jour"
+            return (f"Lignes Ikigai pour USER.md :\n\n{lines}\n\n"
+                    f"Fusion : {kept} ligne(s) existante(s) conservée(s) telles quelles ; {change}. "
+                    f"Total après fusion : {r['chars']}/{r['limit']} caractères.\n"
+                    f"Fiches : {r['files']['profile_dir']}\n"
+                    f"Brouillon SOUL.md : {r['files']['soul_draft'] or '(rien)'}"
+                    + ("\n\nDis « applique le profil Ikigai » et je mets à jour USER.md (avec ton approbation)."
+                       if ops else ""))
+        change = f"{adds} line(s) to add, {rems} to remove" if ops else "USER.md is already up to date"
+        return (f"Ikigai lines for USER.md:\n\n{lines}\n\n"
+                f"Merge: {kept} existing line(s) kept as they are; {change}. "
+                f"Total after merge: {r['chars']}/{r['limit']} chars.\n"
+                f"Sheets: {r['files']['profile_dir']}\nSOUL.md draft: {r['files']['soul_draft'] or '(none)'}"
+                + ("\n\nSay \"apply the Ikigai profile\" and I will update USER.md (with your approval)."
+                   if ops else ""))
+    if sub == "buttons":
+        v = (rest[0].lower() if rest else "")
+        if v in ("on", "off", "auto"):
+            st.set_meta(buttons={"on": True, "off": False, "auto": None}[v])
+        return f"buttons: {st.meta().get('buttons', 'auto')} (on|off|auto)"
     if sub == "pause":
-        st.set_meta(awaiting=None, active=False)
+        st.set_meta(awaiting=None, active=False, pending_show=False)
         return "OK. /ikigai resume" if lg == "en" else "D'accord. /ikigai resume"
     if sub in ("off", "on"):
-        st.set_meta(off=(sub == "off"), **({"active": False, "awaiting": None} if sub == "off" else {}))
+        st.set_meta(off=(sub == "off"), **({"active": False, "awaiting": None, "pending_show": False} if sub == "off" else {}))
         return f"Rappels {'coupés' if sub == 'off' else 'réactivés'}." if lg == "fr" else f"Nudges {sub}."
     if sub == "forget" and rest:
         return ("Supprimée." if lg == "fr" else "Deleted.") if st.forget(rest[0]) else "?"
@@ -194,14 +229,21 @@ def _cmd(raw: str, **_: Any) -> str:
 # ------------------------------------------------------------------ hooks
 
 def _pre_llm_call(session_id: str = "", user_message: Any = "", is_first_turn: bool = False,
-                  **_: Any) -> Any:
+                  platform: str = "", parent_session_id: str = "", **_: Any) -> Any:
     try:
+        if platform in core.NON_INTERACTIVE:      # cron jobs and subagents are nobody's interview
+            return None
         st = _store()
         text = user_message if isinstance(user_message, str) else ""
+        if platform and st.meta().get("platform") != platform:
+            st.set_meta(platform=platform)
         if text and not text.lstrip().startswith("/"):
-            turn = core.interview_turn(st, text)
+            turn = core.interview_turn(st, text, session_id=session_id or "",
+                                       parent_session_id=parent_session_id or "", platform=platform or "")
             if turn is not None:
                 return {"action": "block", "message": turn["message"]}
+        if st.meta().get("active"):               # another chat while an interview runs: stay out of it
+            return None
         parts = [p for p in (core.awaiting_context(st, text), core.nudge(st, bool(is_first_turn))) if p]
         return {"context": "\n\n".join(parts)} if parts else None
     except Exception:  # never break a turn
@@ -209,9 +251,9 @@ def _pre_llm_call(session_id: str = "", user_message: Any = "", is_first_turn: b
         return None
 
 
-def _post_llm_call(session_id: str = "", user_message: Any = "", **_: Any) -> None:
+def _post_llm_call(session_id: str = "", user_message: Any = "", platform: str = "", **_: Any) -> None:
     try:
-        if not isinstance(user_message, str):
+        if platform in core.NON_INTERACTIVE or not isinstance(user_message, str):
             return
         theme = core.detect_correction(user_message)
         if theme:
@@ -254,7 +296,7 @@ def register(ctx: Any) -> None:
         "ikigai_rule_done", "Close a pending 'repeated correction' proposal once the user has answered.",
         {"accepted": {"type": "boolean"}}), _t_rule_done, description="Close rule proposal")
     ctx.register_command("ikigai", _cmd, description="Getting-to-know-you interview and profile",
-                         args_hint="start|resume|more|status|compile|pause|off|on|forget|erase")
+                         args_hint="start|resume|more|status|compile|buttons|pause|off|on|forget|erase")
     ctx.register_hook("pre_llm_call", _pre_llm_call)
     ctx.register_hook("post_llm_call", _post_llm_call)
     skill = Path(__file__).parent / "skills" / "ikigai-interview" / "SKILL.md"

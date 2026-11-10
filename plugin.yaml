@@ -1,16 +1,18 @@
 name: ikigai
 label: Ikigai
 kind: standalone
-version: 0.1.0
+version: 0.2.0
 author: Pierrem57
 homepage: https://github.com/Pierrem57/hermes-ikigai
 description: >
   Getting-to-know-you interview and periodic check-ins that build a detailed, sourced picture of
   the person using Hermes. 76 questions in 11 modules (a 12-question, 10-minute express path first),
   every answer stored locally with the user's exact words and a source tag (declared, inferred,
-  corrected). `/ikigai compile` proposes a USER.md that fits the 1,375-character limit (applied
-  through the built-in memory tool, so write approval still applies), a SOUL.md draft that is never
-  applied automatically, and detailed sheets kept outside the prompt. Weekly 3-question check-ins,
+  corrected). The plugin runs the interview itself (no model call), with answer buttons in the
+  desktop app. `/ikigai compile` merges into USER.md within the 1,375-character limit without
+  touching entries it does not own (applied through the built-in memory tool, so write approval
+  still applies), writes a SOUL.md draft that is never applied automatically, and detailed sheets
+  kept outside the prompt. Weekly 3-question check-ins,
   and an offer to turn a repeated correction into a lasting rule. Local only: no network calls,
   no telemetry. Answers tagged local-only never reach USER.md or SOUL.md.
 requires_hermes: ">=0.22.0"
