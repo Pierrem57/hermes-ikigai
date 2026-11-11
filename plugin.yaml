@@ -1,7 +1,7 @@
 name: ikigai
 label: Ikigai
 kind: standalone
-version: 0.2.0
+version: 0.2.1
 author: Pierrem57
 homepage: https://github.com/Pierrem57/hermes-ikigai
 description: >
@@ -15,7 +15,7 @@ description: >
   kept outside the prompt. Weekly 3-question check-ins,
   and an offer to turn a repeated correction into a lasting rule. Local only: no network calls,
   no telemetry. Answers tagged local-only never reach USER.md or SOUL.md.
-requires_hermes: ">=0.22.0"
+requires_hermes: ">=0.22.6"
 provides_tools:
   - ikigai_next
   - ikigai_save

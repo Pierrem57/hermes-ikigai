@@ -29,6 +29,7 @@ Hermes keeps two small files about you: `USER.md` (1,375 characters, injected on
 | `/ikigai resume` | Continue where you stopped |
 | `/ikigai more [module]` | Go deeper, one module at a time (`ikigai`, `work`, `style`, `autonomy`, `decision`, `rhythm`, `goals`, `values`, `friction`) |
 | `/ikigai status` | Progress per module, answers older than 90 days |
+| `/ikigai show [sheet, all or soul]` | Read back what Ikigai holds about you, in the chat: overview, one sheet (`work`, `ikigai`, `communication`, `autonomy`, `environment`, `goals`, `frictions`), everything, or the `SOUL.md` draft |
 | `/ikigai compile` | `USER.md` lines merged with what is already there, `SOUL.md` draft, sheets |
 | `/ikigai pause`, `off`, `on` | Stop asking, disable nudges, re-enable |
 | `/ikigai buttons on`, `off`, `auto` | Answer buttons (auto: desktop app only) |
@@ -54,7 +55,9 @@ hermes plugins install Pierrem57/hermes-ikigai
 hermes plugins enable ikigai
 ```
 
-Then restart the gateway so it loads the plugin.
+Needs Hermes 0.22.6 or newer: the interview relies on a `pre_llm_call` hook being able to answer a turn itself.
+
+Then restart what serves your chats, so the hooks load: the gateway (`hermes gateway restart`) for messaging platforms, and the desktop app's backend for desktop chats (restart the app, or its `hermes dashboard` service when the backend runs on a server). Installing or updating without that restart leaves the old code answering.
 
 ## Tests
 
@@ -67,9 +70,9 @@ The tests cover the questionnaire's consistency, the budget and priority rules, 
 ## Known limits
 
 - Correction detection is keyword-based (English and French), so it misses subtle corrections. It is a nudge, not a judge.
-- Interview quality depends on the model following the bundled skill. The plugin keeps state (open question, saved answers), so a model that drifts does not lose progress.
+- The interview itself never calls the model. The six tools and the bundled skill are for agent-driven use (a check-in, saving something the agent inferred); that path depends on the model following the skill.
 - Questions are in English and French only.
-- Answer buttons need the desktop app. A slash command's output is plain text there, so after `/ikigai start` one message (anything) is needed to show the first question with its buttons.
+- Answer buttons need the desktop app. The app shows a slash command's output as plain text, and only a reply can carry a widget, so `/ikigai start`, `resume` and `more` answer "Ready: N questions. Send go": that one message (anything) brings the first question with its buttons.
 - The 1,375-character limit is Hermes's default; a custom `user_char_limit` is not read.
 - `USER.md` is read as a frozen snapshot at session start, so an updated file shows up from the next session.
 - With many MCP servers, Hermes may defer plugin tools behind `tool_search`; the interview still works, with one extra lookup.

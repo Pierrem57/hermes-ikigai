@@ -217,10 +217,21 @@ _USER_THEMES = [
     ("Contexte", "Context", [("1.11", 3), ("3.2", 3), ("3.5", 4), ("7.3", 4)]),
     ("Objectifs", "Goals", [("1.3", 2), ("8.1", 2), ("2.8", 4), ("6.2", 4), ("8.4", 4)]),
 ]
-_SHEET = {  # module -> sheet file
-    "m0": "autonomie", "express": None, "ikigai": "ikigai", "work": "travail", "style": "communication",
-    "autonomy": "autonomie", "decision": "autonomie", "rhythm": "environnement", "goals": "objectifs",
-    "values": "autonomie", "friction": "frictions",
+_SHEET = {  # module -> sheet key; express questions are spread by theme (_EXPRESS_SHEET)
+    "m0": "autonomy", "express": None, "ikigai": "ikigai", "work": "work", "style": "communication",
+    "autonomy": "autonomy", "decision": "autonomy", "rhythm": "environment", "goals": "goals",
+    "values": "autonomy", "friction": "frictions",
+}
+_EXPRESS_SHEET = {
+    "1.1": "communication", "1.2": "work", "1.3": "goals", "1.4": "communication", "1.5": "autonomy",
+    "1.6": "autonomy", "1.7": "autonomy", "1.8": "autonomy", "1.9": "frictions", "1.10": "frictions",
+    "1.11": "environment", "1.12": "autonomy",
+}
+_SHEET_NAMES = {  # sheet key -> file name (French, English); listed in display order
+    "work": ("travail", "work"), "ikigai": ("ikigai", "ikigai"),
+    "communication": ("communication", "communication"), "autonomy": ("autonomie", "autonomy"),
+    "environment": ("environnement", "environment"), "goals": ("objectifs", "goals"),
+    "frictions": ("frictions", "frictions"),
 }
 _SOUL_SECTIONS = [
     ("Voix", "Voice", ["1.4", "4.1", "4.2", "4.3", "4.4", "4.5", "4.6", "4.8", "4.9"]),
@@ -255,10 +266,13 @@ def _clip(s: str, n: int) -> str:
 
 
 SEP = "\n§\n"   # entry separator of Hermes memory files
-# Entries this plugin owns in USER.md: its themed lines and its pointer to the sheets. Everything
-# else in the file belongs to the user or the agent and is never proposed for removal.
-_MANAGED = re.compile(r"^(Identité|Identity|Règles|Rules|Format|Contexte|Context|Objectifs|Goals) — "
-                      r"|^(Détail du profil Ikigai|Ikigai profile detail|Détail|Detail) ?: ")
+# Entries this plugin owns in USER.md: a themed line is "<theme> — <one of its own labels>: ...",
+# plus its pointer to the sheets. Everything else in the file belongs to the user or the agent and
+# is never proposed for removal: "Context — I work at ACME" is not ours, "Contexte — Horaires: ..." is.
+_MANAGED = re.compile(
+    "^(?:%s) — (?:%s): |^(?:Détail du profil Ikigai|Ikigai profile detail) ?: |^(?:Détail|Detail) ?: profile/$" % (
+        "|".join(re.escape(head) for theme in _USER_THEMES for head in theme[:2]),
+        "|".join(re.escape(label) for pair in _LABELS.values() for label in pair)))
 
 
 def split_entries(text: str) -> list[str]:
@@ -376,25 +390,86 @@ def compile_soul(store: Store, lang: str | None = None) -> str:
     return "".join(out) if len(out) > 1 else ""
 
 
-def compile_sheets(store: Store, lang: str | None = None) -> dict[str, str]:
+def sheet_rows(store: Store, lang: str | None = None) -> dict[str, list[dict[str, Any]]]:
+    """The answers allowed out of the store, grouped by sheet (named in the interview language)."""
     lg = _lang(lang or store.meta().get("lang", "en"))
+    idx = 0 if lg == "fr" else 1
     use = _usable(store)
     qs = questionnaire()["questions"]
-    sheets: dict[str, list[str]] = {}
+    out: dict[str, list[dict[str, Any]]] = {names[idx]: [] for names in _SHEET_NAMES.values()}
     for qid, v in sorted(use.items(), key=lambda kv: [int(x) for x in kv[0].split(".")]):
-        name = _SHEET.get(module_of(qid))
-        if name is None:  # express questions go with the sheet of their theme number
-            name = {"1.1": "communication", "1.2": "travail", "1.3": "objectifs", "1.4": "communication",
-                    "1.5": "autonomie", "1.6": "autonomie", "1.7": "autonomie", "1.8": "autonomie",
-                    "1.9": "frictions", "1.10": "frictions", "1.11": "environnement",
-                    "1.12": "autonomie"}[qid]
-        when = time.strftime("%Y-%m-%d", time.localtime(v["ts"]))
-        quote = v["quote"] if v["quote"] and v["quote"] != v["value"] else ""
-        row = f"- **{qs[qid][lg]}** ({qid}, {v['source']}, {when})\n  {v['value']}\n"
-        if quote:
-            row += f"  > {quote}\n"
-        sheets.setdefault(name, []).append(row)
-    return {n: f"# {n}\n\n" + "".join(rows) for n, rows in sheets.items()}
+        key = _SHEET.get(module_of(qid)) or _EXPRESS_SHEET[qid]
+        out[_SHEET_NAMES[key][idx]].append({
+            "id": qid, "question": qs[qid][lg], "value": v["value"], "source": v["source"],
+            "quote": v["quote"] if v["quote"] and v["quote"] != v["value"] else "",
+            "date": time.strftime("%Y-%m-%d", time.localtime(v["ts"]))})
+    return {name: rows for name, rows in out.items() if rows}
+
+
+def compile_sheets(store: Store, lang: str | None = None) -> dict[str, str]:
+    sheets = {}
+    for name, rows in sheet_rows(store, lang).items():
+        text = f"# {name}\n\n"
+        for r in rows:
+            text += f"- **{r['question']}** ({r['id']}, {r['source']}, {r['date']})\n  {r['value']}\n"
+            if r["quote"]:
+                text += f"  > {r['quote']}\n"
+        sheets[name] = text
+    return sheets
+
+
+def _short_path(path: Path) -> str:
+    p, home = str(path), str(Path.home())
+    return "~" + p[len(home):] if p.startswith(home + os.sep) else p
+
+
+def show(store: Store, what: str = "", lang: str | None = None) -> str:
+    """What Ikigai holds, as plain text for the chat: an overview, one sheet, every sheet (``all``)
+    or the SOUL.md draft (``soul``). Built from the current answers, so it needs no compile first.
+    Local-only, inferred and out-of-scope answers stay out, exactly as in the sheets."""
+    lg = _lang(lang or store.meta().get("lang", "en"))
+    fr = lg == "fr"
+    rows = sheet_rows(store, lg)
+    what = (what or "").strip().lower()
+
+    def block(name: str) -> str:
+        lines = [f"— {name} ({len(rows[name])}) —"]
+        for r in rows[name]:
+            tag = "" if r["source"] == "declared" else f"  ({r['source']})"
+            lines += [f"[{r['id']}] {r['question']}", f"    {r['value']}{tag}"]
+            if r["quote"]:
+                lines.append(f"    « {r['quote']} »")
+        return "\n".join(lines)
+
+    empty = "Rien à montrer pour l'instant : /ikigai start" if fr else "Nothing to show yet: /ikigai start"
+    if what == "soul":
+        return compile_soul(store, lg) or empty
+    if what in ("all", "tout"):
+        return "\n\n".join(block(n) for n in rows) or empty
+    if what:
+        hits = [n for n in rows if n == what] or [n for n in rows if n.startswith(what)]
+        if len(hits) == 1:
+            return block(hits[0])
+        return (("Fiche inconnue. Fiches : " if fr else "Unknown sheet. Sheets: ") + ", ".join(rows)) if rows else empty
+    if not rows:
+        return empty
+    s = status(store)
+    held = sum(1 for qid, v in store.answers().items() if not v.get("skipped")) - sum(len(r) for r in rows.values())
+    sheets = " · ".join(f"{n} ({len(r)})" for n, r in rows.items())
+    root = _short_path(store.root)
+    if fr:
+        out = [f"Profil Ikigai : {s['answered']} réponses sur {s['total']}, {s['skipped']} passées.", f"Fiches : {sheets}"]
+        if held:
+            out.append(f"Hors fiches : {held} réponse(s) gardée(s) en local (locales, déduites ou hors périmètre).")
+        out += ["Voir : /ikigai show <fiche> · /ikigai show all · /ikigai show soul",
+                f"Fichiers : {root}/ (answers.json ; profile/ et draft/ sont écrits par /ikigai compile)"]
+    else:
+        out = [f"Ikigai profile: {s['answered']} of {s['total']} answered, {s['skipped']} skipped.", f"Sheets: {sheets}"]
+        if held:
+            out.append(f"Not in the sheets: {held} answer(s) kept local (local-only, inferred or out of scope).")
+        out += ["View: /ikigai show <sheet> · /ikigai show all · /ikigai show soul",
+                f"Files: {root}/ (answers.json; profile/ and draft/ are written by /ikigai compile)"]
+    return "\n".join(out)
 
 
 def snapshot(store: Store) -> Path:
@@ -716,13 +791,15 @@ def interview_turn(store: Store, text: str, now: float | None = None, session_id
     if nxt is None:
         store.set_meta(active=False, awaiting=None, pending_show=False, last_checkin=now)
         if module:
-            end = (f"Module « {module} » terminé. /ikigai more <module> pour un autre, /ikigai compile pour "
-                   "voir ce que je propose d'écrire dans USER.md." if fr else
-                   f"Module \"{module}\" complete. /ikigai more <module> for another one, /ikigai compile "
-                   "to see what I would write to USER.md.")
+            end = (f"Module « {module} » terminé. /ikigai more <module> pour un autre, /ikigai show pour relire "
+                   "ton profil, /ikigai compile pour voir ce que je propose d'écrire dans USER.md." if fr else
+                   f"Module \"{module}\" complete. /ikigai more <module> for another one, /ikigai show to "
+                   "read your profile, /ikigai compile to see what I would write to USER.md.")
         else:
-            end = ("Terminé, merci. Lance /ikigai compile pour voir ce que je propose d'écrire dans USER.md."
-                   if fr else "Done, thank you. Run /ikigai compile to see what I would write to USER.md.")
+            end = ("Terminé, merci. /ikigai show pour relire ton profil, /ikigai compile pour voir ce que je "
+                   "propose d'écrire dans USER.md." if fr else
+                   "Done, thank you. /ikigai show to read your profile, /ikigai compile to see what I would "
+                   "write to USER.md.")
         return {"message": end, "done": True}
     return {"message": format_question(nxt, fr, store), "done": False}
 

@@ -353,3 +353,91 @@ def test_a_second_chat_on_the_same_app_never_takes_the_interview_over(st):
     core.bind_owner(st, "sessC", "sessC", "desktop")
     assert core.interview_turn(st, "autre chose", session_id="sessD", platform="desktop") is None
     assert st.meta()["owner"]["ids"] == ["sessC"]
+
+
+# ------------------------------------------------------------------ reading the profile back
+
+def test_sheet_names_follow_the_interview_language(st):
+    answer(st, "0.1", "Tout")
+    answer(st, "1.2", "J'aide des petites entreprises")
+    answer(st, "5.1", "4")
+    assert set(core.compile_sheets(st, "fr")) == {"travail", "autonomie"}
+    assert set(core.compile_sheets(st, "en")) == {"work", "autonomy"}
+    out = core.write_compiled(st, "en")                     # switching language leaves no stale file
+    assert out["sheets"] == ["autonomy", "work"]
+    core.write_compiled(st, "fr")
+    assert sorted(p.name for p in (st.root / "profile").glob("*.md")) == ["autonomie.md", "travail.md"]
+
+
+def test_show_overview_one_sheet_all_and_soul(st):
+    assert "/ikigai start" in core.show(st, "", "en")
+    answer(st, "0.1", "Everything")
+    answer(st, "1.2", "I help small companies")
+    st.save("4.1", "Direct and dry", "be blunt with me", "declared")
+    st.save("1.9", "", skipped=True)
+    over = core.show(st, "", "en")
+    assert "3 of 76 answered, 1 skipped" in over and "work (1)" in over and "communication (1)" in over
+    assert "/ikigai show <sheet>" in over and "answers.json" in over and "Not in the sheets" not in over
+    sheet = core.show(st, "comm", "en")                      # a prefix is enough
+    assert sheet.splitlines()[0] == "— communication (1) —"
+    assert "[4.1] Tone?" in sheet and "    Direct and dry" in sheet and "« be blunt with me »" in sheet
+    assert "I help small companies" not in sheet
+    assert "I help small companies" in core.show(st, "all", "en") and "Direct and dry" in core.show(st, "all", "en")
+    assert "## Voice" in core.show(st, "soul", "en")
+    assert core.show(st, "nope", "en").startswith("Unknown sheet. Sheets: ")
+    assert "Fiches : " in core.show(st, "", "fr") and "travail (1)" in core.show(st, "", "fr")
+
+
+def test_show_keeps_local_and_inferred_answers_out(st):
+    answer(st, "0.1", "Everything")
+    answer(st, "1.2", "I help small companies")
+    answer(st, "5.5", "the client files")                    # local-only question
+    st.save("1.8", "4", "", "inferred")
+    blob = core.show(st, "all", "en") + core.show(st, "", "en")
+    assert "client files" not in blob and "[1.8]" not in blob
+    assert "Not in the sheets: 2 answer(s) kept local" in blob
+
+
+@pytest.mark.parametrize("entry,owned", [
+    ("Contexte — Horaires: lundi-vendredi", True), ("Rules — Red line: never send money", True),
+    ("Identity — Call: Alex; Role: consultant", True), ("Détail du profil Ikigai : ~/x/profile/", True),
+    ("Ikigai profile detail: ~/x/profile/", True), ("Détail : profile/", True),
+    ("Context — I work at ACME", False), ("Rules — be nice to the intern", False),
+    ("Goals — ship the plugin", False), ("Detail: the server is in Frankfurt", False),
+    ("User communicates in English and French.", False),
+])
+def test_only_lines_shaped_like_ikigais_are_owned(entry, owned):
+    assert core.is_managed(entry) is owned
+
+
+def test_a_foreign_line_with_a_theme_word_is_never_proposed_for_removal(st):
+    answer(st, "0.1", "Everything")
+    answer(st, "1.1", "Alex")
+    mine = "Context — I work at ACME" + core.SEP + "Rules — be nice to the intern"
+    r = core.compile_user(st, "en", current=mine)
+    assert r["kept_entries"] == core.split_entries(mine)
+    assert not any(o["action"] == "remove" for o in r["operations"])
+
+
+def test_desktop_handshake_says_how_many_questions_and_which_module(plugin, st):
+    out = plugin._cmd("start en", **DESK)
+    assert "Ready: 15 questions. Send \"go\"" in out and "::preview" not in out
+    out = plugin._cmd("more decision", **DESK)
+    assert "Ready: 6 questions in module \"Decisions and reasoning\"." in out
+    r = hook(plugin, "go")
+    assert r["message"].startswith("[6.1]") and "::preview{file=" in r["message"]
+    hook(plugin, "ikigai:6.1:1")
+    assert st.meta()["awaiting"] == "6.2"                    # stays in the module
+    plugin._cmd("start fr", **DESK)
+    assert "Prêt : 15 questions. Envoie « go »" in plugin._cmd("start fr", **DESK)
+
+
+def test_show_command(plugin, st):
+    assert "/ikigai start" in plugin._cmd("show", **DESK)
+    plugin._cmd("start en", **DESK)
+    hook(plugin, "go")
+    hook(plugin, "ikigai:0.1:1")
+    out = plugin._cmd("show", **DESK)
+    assert "1 of 76 answered" in out and "autonomy (1)" in out
+    assert "Everything" in plugin._cmd("show autonomy", **DESK)
+    assert st.meta()["active"] and st.meta()["awaiting"] == "0.2"      # reading does not disturb the interview

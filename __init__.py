@@ -108,6 +108,7 @@ HELP = {
            "/ikigai resume — continue where you stopped\n"
            "/ikigai more [module] — go deeper (modules: %s)\n"
            "/ikigai status — progress and stale answers\n"
+           "/ikigai show [sheet|all|soul] — what Ikigai holds about you\n"
            "/ikigai compile — propose USER.md, SOUL.md draft and sheets\n"
            "/ikigai pause | off | on — stop asking, disable nudges, re-enable\n"
            "/ikigai buttons on|off|auto — answer buttons (auto: desktop app only)\n"
@@ -117,6 +118,7 @@ HELP = {
            "/ikigai resume — reprend là où tu t'es arrêté\n"
            "/ikigai more [module] — approfondir (modules : %s)\n"
            "/ikigai status — avancement et réponses périmées\n"
+           "/ikigai show [fiche|all|soul] — ce qu'Ikigai sait de toi\n"
            "/ikigai compile — propose USER.md, brouillon de SOUL.md et fiches\n"
            "/ikigai pause | off | on — arrêter les questions, couper les rappels, les réactiver\n"
            "/ikigai buttons on|off|auto — boutons de réponse (auto : application de bureau seulement)\n"
@@ -133,13 +135,21 @@ def _open(st: core.Store, q: dict | None, lg: str, who: dict, intro: str = "", d
         st.set_meta(pending_show=False)
         return done
     core.bind_owner(st, who.get("session_id", ""), who.get("session_key", ""), who.get("platform", ""))
+    fr = lg == "fr"
     if core.buttons_enabled(st):
         st.set_meta(pending_show=True)
-        return intro + ("Envoie « go » (ou n'importe quel message) pour afficher la question avec ses boutons."
-                        if lg == "fr" else
-                        "Send \"go\" (or any message) to show the question with its buttons.")
+        n = q["remaining"]
+        mod = st.meta().get("module")
+        title = next((m["title"] for m in core.modules(lg) if m["id"] == mod), "") if mod else ""
+        if fr:
+            where = f" du module « {title} »" if title else ""
+            return intro + (f"Prêt : {n} question{'s' if n > 1 else ''}{where}. Envoie « go » (ou n'importe quel "
+                            "message) pour commencer ; chaque question arrive avec ses boutons.")
+        where = f" in module \"{title}\"" if title else ""
+        return intro + (f"Ready: {n} question{'s' if n > 1 else ''}{where}. Send \"go\" (or any message) to "
+                        "begin; each question comes with its buttons.")
     st.set_meta(pending_show=False)
-    return intro + core.format_question(q, lg == "fr")
+    return intro + core.format_question(q, fr)
 
 
 def _cmd(raw: str, session_id: str = "", session_key: str = "", platform: str = "", **_: Any) -> str:
@@ -158,10 +168,10 @@ def _cmd(raw: str, session_id: str = "", session_key: str = "", platform: str = 
         if rest and rest[0][:2].lower() in ("fr", "en"):
             lg = "fr" if rest[0].lower().startswith("fr") else "en"
         st.set_meta(lang=lg, started=st.meta().get("started") or core._now(), full=False, module=None)
-        intro = ("Entretien express : ~12 questions, tout est stocké en local, rien n'entre dans USER.md "
-                 "sans ton accord. Une phrase suffit par réponse.\n\n" if lg == "fr" else
-                 "Express interview: ~12 questions, everything stays local, nothing reaches USER.md "
-                 "without your approval. One sentence per answer is enough.\n\n")
+        intro = ("Entretien express. Tout est stocké en local ; rien n'entre dans USER.md sans ton accord. "
+                 "Une phrase suffit par réponse.\n\n" if lg == "fr" else
+                 "Express interview. Everything stays local; nothing reaches USER.md without your approval. "
+                 "One sentence per answer is enough.\n\n")
         return _open(st, core.next_in_scope(st, lg), lg, who, intro,
                      "Déjà complet. /ikigai more <module> pour approfondir, /ikigai compile pour compiler."
                      if lg == "fr" else "Already complete. /ikigai more <module> to go deeper, /ikigai compile.")
@@ -175,6 +185,8 @@ def _cmd(raw: str, session_id: str = "", session_key: str = "", platform: str = 
         st.set_meta(full=True, module=mod)
         return _open(st, core.next_in_scope(st, lg), lg, who, "",
                      "Module terminé." if lg == "fr" else "Module complete.")
+    if sub == "show":
+        return core.show(st, rest[0] if rest else "", lg)
     if sub == "status":
         s = core.status(st)
         rows = "\n".join(f"  {m['module']:<9} {m['answered']}/{m['total']}"
@@ -296,7 +308,7 @@ def register(ctx: Any) -> None:
         "ikigai_rule_done", "Close a pending 'repeated correction' proposal once the user has answered.",
         {"accepted": {"type": "boolean"}}), _t_rule_done, description="Close rule proposal")
     ctx.register_command("ikigai", _cmd, description="Getting-to-know-you interview and profile",
-                         args_hint="start|resume|more|status|compile|buttons|pause|off|on|forget|erase")
+                         args_hint="start|resume|more|status|show|compile|buttons|pause|off|on|forget|erase")
     ctx.register_hook("pre_llm_call", _pre_llm_call)
     ctx.register_hook("post_llm_call", _post_llm_call)
     skill = Path(__file__).parent / "skills" / "ikigai-interview" / "SKILL.md"
