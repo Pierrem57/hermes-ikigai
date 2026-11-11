@@ -21,7 +21,7 @@ except ImportError:  # imported outside the Hermes loader (unit tests)
 
 logger = logging.getLogger(__name__)
 
-__version__ = "0.2.1"       # same as plugin.yaml; logged at load, so the log tells which code is answering
+__version__ = "0.2.2"       # same as plugin.yaml; logged at load, so the log tells which code is answering
 _ctx: Any = None
 
 
