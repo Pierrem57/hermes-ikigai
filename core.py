@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import difflib
 import json
+import logging
 import os
 import re
 import time
@@ -85,13 +86,20 @@ def _read(path: Path, default: Any) -> Any:
         return default
 
 
-def _write(path: Path, data: Any) -> None:
+def _write_text(path: Path, text: str) -> None:
+    """Atomic write, owner-only whatever the umask: every file here holds the user's answers."""
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o700)
     tmp = path.with_suffix(path.suffix + ".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
     with os.fdopen(fd, "w", encoding="utf-8") as fh:
-        json.dump(data, fh, ensure_ascii=False, indent=1)
+        if hasattr(os, "fchmod"):          # a leftover tmp file keeps its old mode otherwise
+            os.fchmod(fh.fileno(), 0o600)
+        fh.write(text)
     os.replace(tmp, path)
+
+
+def _write(path: Path, data: Any) -> None:
+    _write_text(path, json.dumps(data, ensure_ascii=False, indent=1))
 
 
 class Store:
@@ -503,12 +511,11 @@ def write_compiled(store: Store, lang: str | None = None) -> dict[str, Any]:
     for old in prof.glob("*.md"):
         old.unlink()
     for name, text in sheets.items():
-        (prof / f"{name}.md").write_text(text, encoding="utf-8")
+        _write_text(prof / f"{name}.md", text)
     soul = compile_soul(store, lang)
     draft = store.root / "draft" / "SOUL.draft.md"
     if soul:
-        draft.parent.mkdir(exist_ok=True, mode=0o700)
-        draft.write_text(soul, encoding="utf-8")
+        _write_text(draft, soul)
     elif draft.exists():
         draft.unlink()
     return {"sheets": sorted(sheets), "soul_draft": str(draft) if soul else None,
@@ -864,11 +871,10 @@ def widget_html(q: dict[str, Any], fr: bool) -> str:
 
 def write_widget(store: Store, q: dict[str, Any], fr: bool) -> Path:
     html = widget_html(q, fr)
-    d = store.root / "widgets"
-    d.mkdir(parents=True, exist_ok=True, mode=0o700)
-    path = d / f"q_{q['id'].replace('.', '_')}_{'fr' if fr else 'en'}.html"
-    if not path.exists() or path.read_text(encoding="utf-8") != html:
-        path.write_text(html, encoding="utf-8")
+    path = store.root / "widgets" / f"q_{q['id'].replace('.', '_')}_{'fr' if fr else 'en'}.html"
+    loose = os.name == "posix" and path.exists() and path.stat().st_mode & 0o077   # written by an older version
+    if not path.exists() or loose or path.read_text(encoding="utf-8") != html:
+        _write_text(path, html)
     return path
 
 
@@ -896,5 +902,8 @@ def format_question(q: dict[str, Any], fr: bool, store: Store | None = None) -> 
         tail += (f" · {left} restantes" if fr else f" · {left} left")
     s += "\n\n(" + tail + ")"
     if store is not None and buttons_enabled(store):
-        s += f'\n\n::preview{{file="{write_widget(store, q, fr)}"}}'
+        try:
+            s += f'\n\n::preview{{file="{write_widget(store, q, fr)}"}}'
+        except OSError as exc:  # no buttons this time; the numbered list above still takes the answer
+            logging.getLogger(__name__).warning("ikigai: could not write the answer widget: %s", exc)
     return s

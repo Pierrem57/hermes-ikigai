@@ -21,6 +21,7 @@ except ImportError:  # imported outside the Hermes loader (unit tests)
 
 logger = logging.getLogger(__name__)
 
+__version__ = "0.2.1"       # same as plugin.yaml; logged at load, so the log tells which code is answering
 _ctx: Any = None
 
 
@@ -253,6 +254,7 @@ def _pre_llm_call(session_id: str = "", user_message: Any = "", is_first_turn: b
             turn = core.interview_turn(st, text, session_id=session_id or "",
                                        parent_session_id=parent_session_id or "", platform=platform or "")
             if turn is not None:
+                logger.info("ikigai %s answered this turn itself (platform=%s)", __version__, platform or "?")
                 return {"action": "block", "message": turn["message"]}
         if st.meta().get("active"):               # another chat while an interview runs: stay out of it
             return None
@@ -279,6 +281,7 @@ def _post_llm_call(session_id: str = "", user_message: Any = "", platform: str =
 def register(ctx: Any) -> None:
     global _ctx
     _ctx = ctx
+    logger.info("ikigai %s loaded", __version__)
     ts = "ikigai"
     ctx.register_tool("ikigai_next", ts, _schema(
         "ikigai_next", "Get the next unanswered Ikigai interview question (express path by default). "

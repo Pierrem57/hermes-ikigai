@@ -450,3 +450,46 @@ def test_a_bare_option_number_is_not_shown_as_a_quote(st):
     out = core.show(st, "all", "en") + "".join(core.compile_sheets(st, "en").values())
     assert "« 4 »" not in out and "> 4" not in out and "« 1, 2 »" not in out
     assert "What I can be paid for" in out
+
+
+# ------------------------------------------------------------------ packaging and file safety
+
+def test_version_is_the_same_in_the_manifest_and_the_code(plugin):
+    import re
+    manifest = (ROOT / "plugin.yaml").read_text(encoding="utf-8")
+    assert re.search(r"^version: (\S+)$", manifest, re.M).group(1) == plugin.__version__
+    assert re.search(r'^requires_hermes: ">=0\.22\.6"$', manifest, re.M)     # the block veto the interview needs
+
+
+@pytest.mark.skipif(__import__("os").name != "posix", reason="POSIX permission bits")
+def test_every_file_is_owner_only_whatever_the_umask(st):
+    import os
+    old = os.umask(0o002)
+    try:
+        st.set_meta(platform="desktop", lang="en")
+        answer(st, "0.1", "Everything")
+        st.save("4.1", "Direct and dry", "be blunt", "declared")
+        core.write_compiled(st, "en")
+        core.format_question(core.render("0.2", "en"), False, st)
+        loose = st.root / "widgets" / "q_1_1_en.html"             # as an older version left it
+        loose.write_text("old", encoding="utf-8")
+        os.chmod(loose, 0o664)
+        core.format_question(core.render("1.1", "en"), False, st)
+    finally:
+        os.umask(old)
+    files = [p for p in st.root.rglob("*") if p.is_file()]
+    assert len(files) >= 6 and {p.suffix for p in files} >= {".json", ".md", ".html"}
+    assert [str(p) for p in files if p.stat().st_mode & 0o077] == []
+    assert [str(p) for p in st.root.rglob("*") if p.is_dir() and p.stat().st_mode & 0o077] == []
+    assert not list(st.root.rglob("*.tmp"))
+
+
+def test_a_widget_that_cannot_be_written_leaves_the_question_answerable(st, monkeypatch):
+    st.set_meta(platform="desktop")
+
+    def boom(*a, **k):
+        raise PermissionError("read-only")
+
+    monkeypatch.setattr(core, "_write_text", boom)
+    out = core.format_question(core.render("0.1", "fr"), True, st)
+    assert "1. Tout" in out and "::preview" not in out
