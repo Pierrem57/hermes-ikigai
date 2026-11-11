@@ -452,12 +452,21 @@ def show(store: Store, what: str = "", lang: str | None = None) -> str:
         return "\n".join(lines)
 
     empty = "Rien à montrer pour l'instant : /ikigai start" if fr else "Nothing to show yet: /ikigai start"
+    # "[sheet|all|soul]" pasted straight from the help line is a request for the overview, not a sheet
+    what = what.strip().strip("[]").strip().lower()
+    if "|" in what or "/" in what:
+        what = ""
     if what == "soul":
         return compile_soul(store, lg) or empty
     if what in ("all", "tout"):
         return "\n\n".join(block(n) for n in rows) or empty
     if what:
-        hits = [n for n in rows if n == what] or [n for n in rows if n.startswith(what)]
+        alias = {names[i].lower(): names[0 if fr else 1]
+                 for names in _SHEET_NAMES.values() for i in (0, 1)}
+        name = alias.get(what)
+        if name in rows:
+            return block(name)
+        hits = [n for n in rows if n.startswith(what)]
         if len(hits) == 1:
             return block(hits[0])
         return (("Fiche inconnue. Fiches : " if fr else "Unknown sheet. Sheets: ") + ", ".join(rows)) if rows else empty

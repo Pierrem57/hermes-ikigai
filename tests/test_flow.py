@@ -493,3 +493,12 @@ def test_a_widget_that_cannot_be_written_leaves_the_question_answerable(st, monk
     monkeypatch.setattr(core, "_write_text", boom)
     out = core.format_question(core.render("0.1", "fr"), True, st)
     assert "1. Tout" in out and "::preview" not in out
+
+
+def test_show_tolerates_the_help_line_and_both_languages(st):
+    answer(st, "0.1", "Everything")
+    answer(st, "1.2", "I help small companies")
+    for arg in ("[sheet|all|soul]", "sheet|all|soul", "[fiche|all|soul]", ""):
+        assert core.show(st, arg, "en").startswith("Ikigai profile: 2 of 76 answered"), arg
+    assert core.show(st, "travail", "en").startswith("— work (1) —")       # French name, English profile
+    assert core.show(st, "work", "fr").startswith("— travail (1) —")       # and the other way round
