@@ -399,9 +399,11 @@ def sheet_rows(store: Store, lang: str | None = None) -> dict[str, list[dict[str
     out: dict[str, list[dict[str, Any]]] = {names[idx]: [] for names in _SHEET_NAMES.values()}
     for qid, v in sorted(use.items(), key=lambda kv: [int(x) for x in kv[0].split(".")]):
         key = _SHEET.get(module_of(qid)) or _EXPRESS_SHEET[qid]
+        quote = v["quote"] if v["quote"] and v["quote"] != v["value"] else ""
+        if re.fullmatch(r"[\d\s,;]+", quote):       # an option number typed or clicked says nothing more
+            quote = ""
         out[_SHEET_NAMES[key][idx]].append({
-            "id": qid, "question": qs[qid][lg], "value": v["value"], "source": v["source"],
-            "quote": v["quote"] if v["quote"] and v["quote"] != v["value"] else "",
+            "id": qid, "question": qs[qid][lg], "value": v["value"], "source": v["source"], "quote": quote,
             "date": time.strftime("%Y-%m-%d", time.localtime(v["ts"]))})
     return {name: rows for name, rows in out.items() if rows}
 

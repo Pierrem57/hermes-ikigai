@@ -441,3 +441,12 @@ def test_show_command(plugin, st):
     assert "1 of 76 answered" in out and "autonomy (1)" in out
     assert "Everything" in plugin._cmd("show autonomy", **DESK)
     assert st.meta()["active"] and st.meta()["awaiting"] == "0.2"      # reading does not disturb the interview
+
+
+def test_a_bare_option_number_is_not_shown_as_a_quote(st):
+    answer(st, "0.1", "Everything")
+    st.save("2.6", "What I can be paid for", "4", "declared")          # as an older version stored a click
+    st.save("4.1", "Direct and dry", "1, 2", "declared")
+    out = core.show(st, "all", "en") + "".join(core.compile_sheets(st, "en").values())
+    assert "« 4 »" not in out and "> 4" not in out and "« 1, 2 »" not in out
+    assert "What I can be paid for" in out
