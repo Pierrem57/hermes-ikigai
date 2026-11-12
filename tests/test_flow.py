@@ -519,3 +519,34 @@ def test_compile_without_answers_still_says_nothing_to_compile(plugin, st):
     st.set_meta(lang="fr")
     plugin.user_md = core.SEP.join("z" * 195 for _ in range(7))
     assert "Rien à compiler" in plugin._cmd("compile", **DESK)
+
+
+def test_refine_hands_over_entries_and_ranked_answers_and_writes_nothing(plugin, st):
+    import json
+    answer(st, "0.1", "Tout")
+    answer(st, "1.1", "Alex, FR")
+    answer(st, "1.12", "Jamais d'envoi sans GO")
+    st.set_meta(lang="fr")
+    plugin.user_md = core.SEP.join("z" * 195 for _ in range(7))
+    r = json.loads(plugin._t_refine({"lang": "fr"}))
+    assert r["success"] and r["current_entries"] == core.split_entries(plugin.user_md)
+    assert r["current_chars"] == len(plugin.user_md) and r["limit"] == core.USER_LIMIT
+    assert {"1.1", "1.12"} <= {f["id"] for f in r["facts"]} and "memory tool" in r["apply"]
+    assert plugin.user_md == core.SEP.join("z" * 195 for _ in range(7))      # untouched
+
+
+def test_refine_without_answers_is_an_error_and_the_command_says_so(plugin, st):
+    import json
+    st.set_meta(lang="fr")
+    assert json.loads(plugin._t_refine({}))["success"] is False
+    assert "Rien à affiner" in plugin._cmd("refine", **DESK)
+
+
+def test_refine_command_reports_the_file_state_and_how_to_continue(plugin, st):
+    answer(st, "0.1", "Tout")
+    answer(st, "1.1", "Alex, FR")
+    st.set_meta(lang="fr")
+    plugin.user_md = MINE
+    out = plugin._cmd("refine", **DESK)
+    assert f"/{core.USER_LIMIT} caractères" in out and "affine mon USER.md" in out
+    assert "/ikigai refine" in plugin._cmd("help", **DESK)

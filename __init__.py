@@ -81,6 +81,21 @@ def _t_compile(args: dict, **_: Any) -> str:
                      "Do not write SOUL.md: point to the draft file instead.")
 
 
+def _t_refine(args: dict, **_: Any) -> str:
+    st = _store()
+    b = core.refine_brief(st, args.get("lang") or None, current=_user_md())
+    if not b["has_answers"]:
+        return _err("No usable interview answers yet. Run /ikigai start first.")
+    return _ok(**b, apply=(
+        "Rewrite USER.md as ONE tighter whole. Start from current_entries: keep their facts, wording and "
+        "language; use facts to fill gaps or correct what is stale. Never invent. Never drop a fact that "
+        "is only in current_entries without telling the user. Merge duplicates, shorten, put behaviour "
+        "rules first. The result must fit `limit` characters counting `separator` between entries "
+        "(keep the `pointer` line if present). Show the user before/after, the character count and what "
+        "you dropped or merged. Only if they agree, apply it in ONE call to the memory tool "
+        "(target='user', operations remove/patch/add). Do not write SOUL.md."))
+
+
 def _t_snooze(args: dict, **_: Any) -> str:
     import time
     days = max(1, min(90, int(args.get("days", 14))))
@@ -111,6 +126,7 @@ HELP = {
            "/ikigai status — progress and stale answers\n"
            "/ikigai show [sheet|all|soul] — what Ikigai holds about you\n"
            "/ikigai compile — propose USER.md, SOUL.md draft and sheets\n"
+           "/ikigai refine — rewrite a full USER.md as a tighter whole, using your answers\n"
            "/ikigai pause | off | on — stop asking, disable nudges, re-enable\n"
            "/ikigai buttons on|off|auto — answer buttons (auto: desktop app only)\n"
            "/ikigai forget <id> — delete one answer (it is asked again on resume) · "
@@ -121,6 +137,7 @@ HELP = {
            "/ikigai status — avancement et réponses périmées\n"
            "/ikigai show [fiche|all|soul] — ce qu'Ikigai sait de toi\n"
            "/ikigai compile — propose USER.md, brouillon de SOUL.md et fiches\n"
+           "/ikigai refine — réécrit un USER.md plein en version plus dense, avec tes réponses\n"
            "/ikigai pause | off | on — arrêter les questions, couper les rappels, les réactiver\n"
            "/ikigai buttons on|off|auto — boutons de réponse (auto : application de bureau seulement)\n"
            "/ikigai forget <id> — supprime une réponse (reposée au prochain resume) · "
@@ -199,10 +216,10 @@ def _cmd(raw: str, session_id: str = "", session_key: str = "", platform: str = 
         if not r["user_md_lines"]:
             if r["no_room"]:   # answers exist, but the file leaves no room for the Ikigai lines
                 return (f"USER.md est plein ({r['chars']}/{r['limit']} caractères) : pas de place pour les lignes "
-                        "Ikigai. Tes entrées existantes ne sont jamais modifiées par compile ; libère de la place "
-                        f"puis relance. Fiches et brouillon SOUL.md : {r['files']['profile_dir']}" if lg == "fr" else
+                        "Ikigai. compile ne modifie jamais tes entrées existantes ; /ikigai refine propose une version "
+                        f"réécrite et plus dense. Fiches et brouillon SOUL.md : {r['files']['profile_dir']}" if lg == "fr" else
                         f"USER.md is full ({r['chars']}/{r['limit']} chars): no room for the Ikigai lines. "
-                        "Compile never edits your existing entries; free some space, then run it again. "
+                        "Compile never edits your existing entries; /ikigai refine proposes a rewritten, denser version. "
                         f"Sheets and SOUL.md draft: {r['files']['profile_dir']}")
             return "Rien à compiler pour l'instant." if lg == "fr" else "Nothing to compile yet."
         lines = "\n".join(r["user_md_lines"])
@@ -225,6 +242,19 @@ def _cmd(raw: str, session_id: str = "", session_key: str = "", platform: str = 
                 f"Sheets: {r['files']['profile_dir']}\nSOUL.md draft: {r['files']['soul_draft'] or '(none)'}"
                 + ("\n\nSay \"apply the Ikigai profile\" and I will update USER.md (with your approval)."
                    if ops else ""))
+    if sub == "refine":
+        b = core.refine_brief(st, lg, current=_user_md())
+        if not b["has_answers"]:
+            return "Rien à affiner : aucune réponse exploitable. /ikigai start" if lg == "fr" else \
+                "Nothing to refine: no usable answer yet. /ikigai start"
+        n, c, lim = len(b["facts"]), b["current_chars"], b["limit"]
+        if lg == "fr":
+            return (f"USER.md : {c}/{lim} caractères, {len(b['current_entries'])} entrée(s) ; {n} réponse(s) "
+                    "exploitable(s). Dis « affine mon USER.md » : je te propose une version réécrite et plus "
+                    "dense (avant/après, caractères), et je n'écris rien sans ton accord.")
+        return (f"USER.md: {c}/{lim} chars, {len(b['current_entries'])} entr(ies); {n} usable answer(s). "
+                "Say \"refine my USER.md\": I will propose a rewritten, denser version (before/after, chars) "
+                "and write nothing without your approval.")
     if sub == "buttons":
         v = (rest[0].lower() if rest else "")
         if v in ("on", "off", "auto"):
@@ -311,6 +341,12 @@ def register(ctx: Any) -> None:
         "current file), a SOUL.md draft and detailed sheets. Writes only inside the plugin's own data "
         "directory. Apply USER.md lines yourself with the memory tool, after the user agrees.",
         {"lang": {"type": "string", "enum": ["fr", "en"]}}), _t_compile, description="Compile profile")
+    ctx.register_tool("ikigai_refine", ts, _schema(
+        "ikigai_refine", "Use when the user asks to refine, condense or improve a full USER.md with their "
+        "interview answers. Returns the current USER.md entries, the usable answers ranked by priority and "
+        "the rules for the rewrite. Writes nothing: propose the rewrite, then apply it with the memory tool "
+        "only after the user agrees.", {"lang": {"type": "string", "enum": ["fr", "en"]}}),
+        _t_refine, description="Refine USER.md")
     ctx.register_tool("ikigai_snooze", ts, _schema(
         "ikigai_snooze", "The user declined the weekly check-in: do not offer it again for N days.",
         {"days": {"type": "integer", "minimum": 1, "maximum": 90}}), _t_snooze, description="Snooze check-in")
@@ -318,7 +354,7 @@ def register(ctx: Any) -> None:
         "ikigai_rule_done", "Close a pending 'repeated correction' proposal once the user has answered.",
         {"accepted": {"type": "boolean"}}), _t_rule_done, description="Close rule proposal")
     ctx.register_command("ikigai", _cmd, description="Getting-to-know-you interview and profile",
-                         args_hint="start|resume|more|status|show|compile|buttons|pause|off|on|forget|erase")
+                         args_hint="start|resume|more|status|show|compile|refine|buttons|pause|off|on|forget|erase")
     ctx.register_hook("pre_llm_call", _pre_llm_call)
     ctx.register_hook("post_llm_call", _post_llm_call)
     skill = Path(__file__).parent / "skills" / "ikigai-interview" / "SKILL.md"
