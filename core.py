@@ -818,6 +818,10 @@ def interview_turn(store: Store, text: str, now: float | None = None, session_id
                    "propose d'écrire dans USER.md." if fr else
                    "Done, thank you. /ikigai show to read your profile, /ikigai compile to see what I would "
                    "write to USER.md.")
+            if express:   # the express path is only the first step: say how to go deeper
+                mods = ", ".join(x["id"] for x in modules() if not x["express"] and x["id"] != "m0")
+                end += (f"\n\nPour aller plus loin : /ikigai more <module> ({mods})." if fr else
+                        f"\n\nTo go deeper: /ikigai more <module> ({mods}).")
         return {"message": end, "done": True}
     return {"message": format_question(nxt, fr, store), "done": False}
 
