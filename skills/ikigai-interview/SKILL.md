@@ -15,3 +15,4 @@ Rules for the agent while the interview is open (`/ikigai start`, `/ikigai resum
 6. **Sensitive material** (health, finances, family, minors, third parties): store it if asked, but it stays local. Say so once.
 7. At the end, call `ikigai_compile`. Show the proposed USER.md lines and the diff. Apply them with the built-in `memory` tool (target `user`, one batch) only after the user agrees. Point to the SOUL.md draft; never write SOUL.md yourself.
 8. If the user corrects you on the same thing repeatedly, offer to make it a lasting rule (see `ikigai_rule_done`).
+9. **Full or untidy USER.md.** When the user asks to refine, condense or improve it (`/ikigai refine`), call `ikigai_refine`, not `ikigai_compile`. Rewrite the whole file as one tighter set of entries from `current_entries` and `facts`: never invent, never drop a fact silently, stay within `limit`. Show before/after and the character count, apply in one `memory` batch only after the user agrees.

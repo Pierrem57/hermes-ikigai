@@ -21,6 +21,7 @@ provides_tools:
   - ikigai_save
   - ikigai_status
   - ikigai_compile
+  - ikigai_refine
   - ikigai_snooze
   - ikigai_rule_done
 provides_hooks:

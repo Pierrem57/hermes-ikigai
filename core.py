@@ -303,6 +303,21 @@ def _detail_line(store: Store, fr: bool) -> str:
     return head + "$HERMES_HOME/plugin-data/ikigai/profile/"
 
 
+def _user_items(store: Store, width: int) -> list[list[Any]]:
+    """Answers eligible for USER.md, as [theme_idx, order, prio, qid, text], in theme order."""
+    use = _usable(store)
+    q = questionnaire()["questions"]
+    items = []
+    for ti, (tfr, ten, ids) in enumerate(_USER_THEMES):
+        for order, (qid, prio) in enumerate(ids):
+            if qid not in use or "U" not in q[qid]["to"]:
+                continue
+            if q[qid].get("multi") and _is_exclusive_answer(qid, use[qid]["value"]):
+                continue                     # "None of them" is not a rule worth a line
+            items.append([ti, order, prio, qid, _clip(use[qid]["value"], width)])
+    return items
+
+
 def compile_user(store: Store, lang: str | None = None, current: str = "") -> dict[str, Any]:
     """Build the USER.md proposal and MERGE it with the file's current content.
 
@@ -312,16 +327,7 @@ def compile_user(store: Store, lang: str | None = None, current: str = "") -> di
     minimal change set for the memory tool: stale Ikigai lines removed, new ones added."""
     lg = _lang(lang or store.meta().get("lang", "en"))
     idx = 0 if lg == "fr" else 1
-    use = _usable(store)
-    q = questionnaire()["questions"]
-    items = []  # [theme_idx, order, prio, qid, text]
-    for ti, (tfr, ten, ids) in enumerate(_USER_THEMES):
-        for order, (qid, prio) in enumerate(ids):
-            if qid not in use or "U" not in q[qid]["to"]:
-                continue
-            if q[qid].get("multi") and _is_exclusive_answer(qid, use[qid]["value"]):
-                continue                     # "None of them" is not a rule worth a line
-            items.append([ti, order, prio, qid, _clip(use[qid]["value"], 70)])
+    items = _user_items(store, 70)
     detail = _detail_line(store, lg == "fr")
     existing = split_entries(current)
     kept = [e for e in existing if not is_managed(e)]
@@ -351,6 +357,7 @@ def compile_user(store: Store, lang: str | None = None, current: str = "") -> di
             lines.append(detail)
         return lines
 
+    had_items = bool(items)
     dropped: list[str] = []
     while True:
         lines = build(items)
@@ -370,7 +377,23 @@ def compile_user(store: Store, lang: str | None = None, current: str = "") -> di
            + [{"action": "add", "content": l} for l in fresh])
     return {"lines": lines, "kept_entries": kept, "merged": merged, "chars": len(SEP.join(merged)),
             "limit": USER_LIMIT, "dropped": dropped, "kept": [i[3] for i in items],
+            "no_room": had_items and not lines,   # answers exist but the file leaves no room for them
             "operations": ops, "separator": SEP}
+
+
+def refine_brief(store: Store, lang: str | None = None, current: str = "") -> dict[str, Any]:
+    """Everything the agent needs to rewrite USER.md as one tighter whole, using the interview
+    answers. Unlike ``compile_user`` this does not merge: the plugin has no model, so it hands over
+    the current entries and the usable answers (ranked: priority 1 is the most important) and the
+    agent proposes the rewrite, which the user approves before anything is written."""
+    lg = _lang(lang or store.meta().get("lang", "en"))
+    idx = 0 if lg == "fr" else 1
+    facts = [{"theme": _USER_THEMES[i[0]][idx], "label": _LABELS[i[3]][idx], "priority": i[2],
+              "value": i[4], "id": i[3]} for i in _user_items(store, 300)]
+    entries = split_entries(current)
+    return {"current_entries": entries, "current_chars": len(SEP.join(entries)), "limit": USER_LIMIT,
+            "separator": SEP, "facts": facts, "pointer": _detail_line(store, lg == "fr"),
+            "language": lg, "has_answers": bool(facts)}
 
 
 def _is_exclusive_answer(qid: str, value: str) -> bool:
