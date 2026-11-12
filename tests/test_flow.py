@@ -502,3 +502,20 @@ def test_show_tolerates_the_help_line_and_both_languages(st):
         assert core.show(st, arg, "en").startswith("Ikigai profile: 2 of 76 answered"), arg
     assert core.show(st, "travail", "en").startswith("— work (1) —")       # French name, English profile
     assert core.show(st, "work", "fr").startswith("— travail (1) —")       # and the other way round
+
+
+def test_compile_says_the_file_is_full_instead_of_nothing_to_compile(plugin, st):
+    answer(st, "0.1", "Tout")
+    answer(st, "1.1", "Alex, FR")
+    st.set_meta(lang="fr")
+    plugin.user_md = core.SEP.join("z" * 195 for _ in range(7))      # no room for even one Ikigai line
+    out = plugin._cmd("compile", **DESK)
+    assert "USER.md est plein" in out and f"/{core.USER_LIMIT} caractères" in out and "Rien à compiler" not in out
+    st.set_meta(lang="en")
+    assert "USER.md is full" in plugin._cmd("compile", **DESK)
+
+
+def test_compile_without_answers_still_says_nothing_to_compile(plugin, st):
+    st.set_meta(lang="fr")
+    plugin.user_md = core.SEP.join("z" * 195 for _ in range(7))
+    assert "Rien à compiler" in plugin._cmd("compile", **DESK)

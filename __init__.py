@@ -74,7 +74,7 @@ def _t_compile(args: dict, **_: Any) -> str:
     files = core.write_compiled(st, args.get("lang") or None)
     return _ok(user_md_lines=user["lines"], kept_entries=user["kept_entries"], operations=user["operations"],
                chars=user["chars"], limit=user["limit"], separator=user["separator"],
-               dropped_for_budget=user["dropped"], diff=core.user_diff(cur, user["merged"]), files=files,
+               dropped_for_budget=user["dropped"], no_room=user["no_room"], diff=core.user_diff(cur, user["merged"]), files=files,
                apply="This is a MERGE: entries Ikigai does not own stay untouched. Show the diff to the user. "
                      "If they agree, apply exactly `operations` in ONE call to the memory tool "
                      "(target='user'); with no operations, USER.md is already up to date. "
@@ -197,6 +197,13 @@ def _cmd(raw: str, session_id: str = "", session_key: str = "", platform: str = 
     if sub == "compile":
         r = json.loads(_t_compile({"lang": lg}))
         if not r["user_md_lines"]:
+            if r["no_room"]:   # answers exist, but the file leaves no room for the Ikigai lines
+                return (f"USER.md est plein ({r['chars']}/{r['limit']} caractères) : pas de place pour les lignes "
+                        "Ikigai. Tes entrées existantes ne sont jamais modifiées par compile ; libère de la place "
+                        f"puis relance. Fiches et brouillon SOUL.md : {r['files']['profile_dir']}" if lg == "fr" else
+                        f"USER.md is full ({r['chars']}/{r['limit']} chars): no room for the Ikigai lines. "
+                        "Compile never edits your existing entries; free some space, then run it again. "
+                        f"Sheets and SOUL.md draft: {r['files']['profile_dir']}")
             return "Rien à compiler pour l'instant." if lg == "fr" else "Nothing to compile yet."
         lines = "\n".join(r["user_md_lines"])
         kept, ops = len(r["kept_entries"]), r["operations"]

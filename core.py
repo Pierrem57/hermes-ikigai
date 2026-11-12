@@ -351,6 +351,7 @@ def compile_user(store: Store, lang: str | None = None, current: str = "") -> di
             lines.append(detail)
         return lines
 
+    had_items = bool(items)
     dropped: list[str] = []
     while True:
         lines = build(items)
@@ -370,6 +371,7 @@ def compile_user(store: Store, lang: str | None = None, current: str = "") -> di
            + [{"action": "add", "content": l} for l in fresh])
     return {"lines": lines, "kept_entries": kept, "merged": merged, "chars": len(SEP.join(merged)),
             "limit": USER_LIMIT, "dropped": dropped, "kept": [i[3] for i in items],
+            "no_room": had_items and not lines,   # answers exist but the file leaves no room for them
             "operations": ops, "separator": SEP}
 
 
