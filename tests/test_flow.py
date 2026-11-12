@@ -202,6 +202,21 @@ def test_more_module_stays_in_its_module_and_ends_there(st):
     assert "rhythm" in r["message"] and "1.1" not in st.answers()
 
 
+def _run_to_end(st):
+    while True:
+        qid = st.meta()["awaiting"]
+        r = core.interview_turn(st, "1" if core.render(qid, "fr").get("options") else "libre")
+        if r["done"]:
+            return r
+
+
+def test_express_end_offers_more_modules(st):
+    start(st)   # express path
+    r = _run_to_end(st)
+    assert "/ikigai more <module>" in r["message"]
+    assert all(m in r["message"] for m in ("ikigai", "work", "friction")) and "express" not in r["message"]
+
+
 # ------------------------------------------------------------------ USER.md merge
 
 MINE = "User communicates in English and French." + core.SEP + "User prefers buttons.\nSecond line of the same entry."
