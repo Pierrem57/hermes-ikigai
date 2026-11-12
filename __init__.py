@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from pathlib import Path
 from typing import Any
 
@@ -250,6 +251,8 @@ def _pre_llm_call(session_id: str = "", user_message: Any = "", is_first_turn: b
         text = user_message if isinstance(user_message, str) else ""
         if platform and st.meta().get("platform") != platform:
             st.set_meta(platform=platform)
+        # Shared multi-user threads (Discord, Slack): the gateway prepends "[Name] " to the reply.
+        text = re.sub(r"^\s*\[[^\]\n]{1,120}\]\s+", "", text, count=1)
         if text and not text.lstrip().startswith("/"):
             turn = core.interview_turn(st, text, session_id=session_id or "",
                                        parent_session_id=parent_session_id or "", platform=platform or "")

@@ -502,3 +502,14 @@ def test_show_tolerates_the_help_line_and_both_languages(st):
         assert core.show(st, arg, "en").startswith("Ikigai profile: 2 of 76 answered"), arg
     assert core.show(st, "travail", "en").startswith("— work (1) —")       # French name, English profile
     assert core.show(st, "work", "fr").startswith("— travail (1) —")       # and the other way round
+
+
+def test_reply_in_a_shared_thread_keeps_working_with_the_sender_prefix(plugin, st):
+    # Discord/Slack shared threads: the gateway turns "1" into "[David] 1" before the hook runs.
+    plugin._cmd("start fr", session_id="t1", session_key="t1", platform="discord")
+    r = hook(plugin, "[David] 1", session_id="t1", platform="discord")
+    assert st.answers()["0.1"]["value"] == "Tout" and r["message"].startswith("[0.2]")
+    r = hook(plugin, "[David | Slack user <@U123>] 1,2", session_id="t1", platform="discord")
+    assert "0.2" in st.answers() and r["message"].startswith("[0.3]")
+    hook(plugin, "[David] passer", session_id="t1", platform="discord")
+    assert st.answers()["0.3"]["skipped"]
