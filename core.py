@@ -902,7 +902,9 @@ def format_question(q: dict[str, Any], fr: bool, store: Store | None = None) -> 
     if q.get("multi"):
         s += " (plusieurs choix possibles)" if fr else " (several choices allowed)"
     if q.get("options"):
-        s += "\n" + "\n".join(f"  {i}. {o}" for i, o in enumerate(q["options"], 1))
+        # No leading indent: Markdown surfaces (Discord, Slack) strip it on the first item only,
+        # which shifts options 2..n.
+        s += "\n" + "\n".join(f"{i}. {o}" for i, o in enumerate(q["options"], 1))
     left = q.get("remaining")
     tail = ("« passer » pour sauter, « pause » pour arrêter" if fr else "\"skip\" to skip, \"pause\" to stop")
     if q.get("multi"):
