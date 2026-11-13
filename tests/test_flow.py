@@ -340,7 +340,7 @@ def test_compile_command_and_tool_merge_with_the_existing_file(plugin, st):
 
 def test_stale_interview_expires_and_frees_the_chat(plugin, st):
     plugin._cmd("start fr", **DESK)
-    st.set_meta(awaiting_ts=time.time() - 13 * 3600)
+    st.set_meta(awaiting_ts=time.time() - (core.AWAIT_TTL_H + 1) * 3600)
     assert hook(plugin, "une vraie question") is None and not st.meta()["active"]
 
 
@@ -502,3 +502,10 @@ def test_show_tolerates_the_help_line_and_both_languages(st):
         assert core.show(st, arg, "en").startswith("Ikigai profile: 2 of 76 answered"), arg
     assert core.show(st, "travail", "en").startswith("— work (1) —")       # French name, English profile
     assert core.show(st, "work", "fr").startswith("— travail (1) —")       # and the other way round
+
+
+def test_a_pause_overnight_or_over_the_weekend_keeps_the_interview(plugin, st):
+    plugin._cmd("start fr", session_id="t1", session_key="t1", platform="telegram")
+    st.set_meta(awaiting_ts=time.time() - 60 * 3600)                 # Friday evening to Monday morning
+    r = hook(plugin, "1", session_id="t1", platform="telegram")      # question 0.1, option 1
+    assert r["message"].startswith("[0.2]") and st.meta()["active"] and "0.1" in st.answers()
