@@ -26,7 +26,7 @@ LINE_LIMIT = 120           # one theme per line, short
 STALE_DAYS = 90
 CHECKIN_DAYS = 7
 NUDGE_COOLDOWN_H = 24
-AWAIT_TTL_H = 12
+AWAIT_TTL_H = 72           # a paused interview keeps the chat this long (a weekend); /ikigai resume works after
 
 SOURCES = ("declared", "inferred", "corrected")
 _DATA = Path(__file__).with_name("data") / "questionnaire.json"

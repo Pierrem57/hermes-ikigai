@@ -165,7 +165,7 @@ def test_awaiting_context_expires(st):
     q = core.next_question(st, lang="en")
     t = st.meta()["awaiting_ts"]
     assert q["id"] in core.awaiting_context(st, "ok", t + 60)
-    assert core.awaiting_context(st, "ok", t + 13 * 3600) is None
+    assert core.awaiting_context(st, "ok", t + (core.AWAIT_TTL_H + 1) * 3600) is None
 
 
 def test_erase_all(st):
@@ -236,7 +236,7 @@ def test_full_express_run_ends_cleanly(st):
 
 def test_stale_open_question_expires(st):
     start(st)
-    assert core.interview_turn(st, "tout", time.time() + 13 * 3600) is None
+    assert core.interview_turn(st, "tout", time.time() + (core.AWAIT_TTL_H + 1) * 3600) is None
     assert not st.meta()["active"]
 
 
